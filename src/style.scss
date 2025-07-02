@@ -1,0 +1,116 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  user-select: none;
+}
+
+html {
+  height: 100%;
+  color: $textColor;
+  line-height: 1.5;
+  touch-action: manipulation;
+  background: $bgColor;
+
+  /* 禁用双击放大 */
+  -webkit-touch-callout: none;
+  /* 禁用长按菜单 */
+}
+
+body {
+  height: 100%;
+  touch-action: manipulation;
+  background: $bgColor;
+
+  /* 禁用双击放大 */
+  -webkit-touch-callout: none;
+  /* 禁用长按菜单 */
+}
+
+a {
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  outline: none;
+  color: inherit;
+  font-size: inherit;
+}
+
+li,
+ol,
+ul {
+  list-style: none;
+}
+
+img {
+  vertical-align: middle;
+  border-style: none;
+}
+
+input,
+textarea {
+  -webkit-user-select: auto !important;
+  -khtml-user-select: auto !important;
+  -moz-user-select: auto !important;
+  -ms-user-select: auto !important;
+  -o-user-select: auto !important;
+  user-select: auto !important;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+  /* Firefox */
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+#app {
+  height: 100%;
+  background: $bgColor;
+}
+
+.van-tabs__nav {
+  background: $bgColor !important;
+}
+
+// 弹窗样式
+.van-popup {
+  background: #182234 !important;
+}
+
+.van-tab {
+  color: #dce3de !important;
+  font-size: 18px !important;
+  font-weight: 500 !important;
+  text-transform: uppercase;
+}
+
+.van-tabs__line {
+  background: #ffd700 !important;
+  bottom: 20px !important;
+}
+
+.van-tab--active {
+  color: #ffd700 !important;
+}
+
+.van-dropdown-menu__bar {
+  background: #182234 !important;
+}
+
+.van-dropdown-menu__title {
+  color: #fff !important;
+}
+.easy {
+  line-height: 1.1;
+  text-align: center;
+  font-size: 12px;
+  padding: 4px 6px;
+  border: 1px solid #04E3FF;
+  background: #030616 !important;
+  box-shadow: 0px 4px 4px 0px rgba(0, 0, 0, 0.50);
+}

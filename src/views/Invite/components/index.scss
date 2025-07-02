@@ -1,0 +1,340 @@
+.pageInfo {
+    position: relative;
+    width: 100%;
+    margin: 50px 0 0;
+    padding: 10px 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    .avatat {
+        position: absolute;
+        top: -5.5vh;
+        border: 1px solid #182234;
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        z-index: 1;
+        overflow: hidden;
+
+        img {
+            width: 100%;
+            height: 100%;
+        }
+    }
+
+    .page_box {
+        width: 100%;
+        background: url("@/assets/svg/friendBG.svg") no-repeat;
+        background-size: cover;
+        background-position: center;
+        padding: 10px;
+
+
+
+        &>div:first-child {
+            color: #aab7c7;
+            font-size: 12px;
+            visibility: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .info_data {
+            display: flex;
+            width: 100%;
+            margin: 25px auto;
+            padding: 12px 2px;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-radius: 15px;
+            background: #0c1026;
+
+            .item {
+                flex: 1;
+                margin: 0 2px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-direction: column;
+                font-size: 14px;
+
+                .item_title {
+                    text-align: center;
+
+                    &>p:last-child {
+                        color: #ffea00;
+                        font-weight: bold;
+                        font-size: 18px;
+                    }
+                }
+
+                .item_info {
+                    color: #788ca3;
+
+                    &>p:first-child {
+                        font-size: 12px;
+                        text-align: center;
+                    }
+
+                    .item_flex {
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 12px;
+
+                        span {
+                            margin: 0 0 0 4px;
+                            color: #fff;
+                        }
+                    }
+                }
+            }
+        }
+
+        .info_flexdiv {
+            width: 100%;
+
+            .nowText {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                font-weight: bold;
+
+                .refresh {
+                    display: flex;
+                    align-items: center;
+
+                    i {
+                        margin: 0 0 0 4px;
+                    }
+
+                    p {
+                        color: #ffea00;
+                    }
+                }
+
+                .refreshIconAct {
+                    animation: spin .3s linear infinite;
+                }
+
+                &>p:first-child {
+                    color: #fff;
+                    font-size: 14px;
+                }
+
+                &>p:last-child {
+                    color: #ffea00;
+                }
+            }
+
+            &>p {
+                color: #788ca3;
+                font-size: 14px;
+                margin: 4px 0 0;
+            }
+
+            .btn {
+                margin: 10px 0;
+                display: flex;
+                padding: 8px;
+                justify-content: center;
+                align-items: center;
+                gap: 10px;
+                border-radius: 10px;
+                background: #636ff1;
+            }
+        }
+    }
+
+}
+
+.Instructions {
+    font-size: 12px;
+    text-align: end;
+}
+
+.pageList {
+    width: 100%;
+    max-height: 90vh;
+    overflow: auto;
+
+    .flextitle {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+
+        .flexItem {
+            display: flex;
+            align-items: center;
+
+            p {
+                margin: 0 4px 0 0;
+            }
+        }
+    }
+
+    .listBox {
+        margin: 10px 0 0;
+
+        .item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 6px;
+            background: #0c1026;
+            margin: 0 0 10px 0;
+            border-radius: 10px;
+
+            .item_avatar {
+                display: flex;
+                align-items: center;
+                font-weight: 700;
+
+                .rank {
+                    width: 36px;
+                    height: 36px;
+                    position: relative;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+
+                    svg {
+                        position: absolute;
+                        left: 0;
+                        top: 0;
+                    }
+
+                    p {
+                        color: #788ca3;
+                        margin: 2px 0 0;
+                    }
+                }
+
+                img {
+                    width: 36px;
+                    height: 36px;
+                    border-radius: 500px;
+                    margin: 0 4px;
+                    border: 2px solid #788ca3;
+                }
+            }
+
+            .item_amouont {
+                .bet_amount {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+
+                    p {
+                        font-weight: bold;
+                        font-size: 17px;
+                    }
+                }
+
+                .brokerage {
+                    color: var(--, #fff);
+                    font-size: 12px;
+                    font-weight: 290;
+                }
+
+                img {
+                    width: 18px;
+                    height: 18px;
+                    margin: 0 4px 0 0;
+                }
+            }
+        }
+    }
+
+    :deep(.van-popup) {
+        overflow: visible;
+    }
+
+    .popBox {
+        width: 90vw;
+        background: #2d3647;
+        padding: 70px 16px 12px 16px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+
+        .avatar {
+            position: absolute;
+            top: -20px;
+            text-align: center;
+            font-size: 14px;
+            color: #939cf9;
+            font-weight: bold;
+
+            img {
+                width: 64px;
+                height: 64px;
+                border-radius: 50%;
+                border: 8px solid #2d3647;
+            }
+        }
+
+        .box {
+            border-radius: 10px;
+            background: #0c1026;
+            display: flex;
+            padding: 12px 6px;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            align-self: stretch;
+            font-size: 14px;
+
+            .flex_b {
+                width: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+
+                .flex {
+                    display: flex;
+                    align-items: center;
+
+                    p {
+                        color: #FEBE29;
+                        font-size: 16px;
+                        font-weight: bold;
+                    }
+                }
+
+                img {
+                    width: 18px;
+                    height: 18px;
+                    margin: 0 0 0 4px;
+                }
+            }
+        }
+    }
+}
+
+.gujia {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    flex-direction: column;
+
+    .avatar_gujia {
+        border-radius: 50%;
+        background: #192134;
+    }
+
+    .content_gujia {
+        width: 100%;
+        margin: 2vh 0;
+
+        div {
+            height: 200px;
+            border-radius: 6px;
+            background: #192134;
+        }
+    }
+}

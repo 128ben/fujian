@@ -1,0 +1,172 @@
+// 列表左右摇动
+@keyframes slide-left-right {
+    0% {
+        opacity: 0;
+        transform: translateX(-10px);
+    }
+
+    50% {
+        transform: translateX(10px);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes slide-right-left {
+    0% {
+        opacity: 0;
+        transform: translateX(10px);
+    }
+
+    50% {
+        transform: translateX(-10px);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+// 上下摇动
+@keyframes slide-top {
+    0% {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    50% {
+        transform: translateY(10px);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slide-bottom {
+    0% {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    50% {
+        transform: translateY(-10px);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slide-top-opcity {
+    0% {
+        transform: translateY(-10px);
+    }
+
+    50% {
+        transform: translateY(10px);
+    }
+
+    100% {
+        transform: translateY(0);
+    }
+}
+
+//X 轴翻转动画
+@keyframes flip {
+    0% {
+        opacity: 0;
+        transform: perspective(200px) rotateX(-100deg);
+    }
+
+    100% {
+        opacity: 1;
+        transform: perspective(200px) rotateX(0deg);
+    }
+}
+
+// 忽大忽小
+@keyframes scale {
+
+    0%,
+    to {
+        transform: scale(.85);
+    }
+
+    50% {
+        transform: scale(1);
+    }
+}
+
+/* 领取奖金动画 */
+@keyframes award {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* 定义闪烁动画 */
+@keyframes blink {
+
+    0%,
+    100% {
+        background-color: rgba(255, 255, 255, .8);
+        /* 初始和结束时的背景颜色 */
+    }
+
+    50% {
+        background-color: transparent;
+        /* 中间时的背景颜色 */
+    }
+}
+
+/* 定义震动动画 */
+@keyframes shake {
+
+    10%,
+    90% {
+        transform: translate3d(-1px, 0, 0);
+    }
+
+    20%,
+    80% {
+        transform: translate3d(+2px, 0, 0);
+    }
+
+    30%,
+    70% {
+        transform: translate3d(-4px, 0, 0);
+    }
+
+    40%,
+    60% {
+        transform: translate3d(+4px, 0, 0);
+    }
+
+    50% {
+        transform: translate3d(-4px, 0, 0);
+    }
+}
+
+// 旋转元素
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+        /* 初始状态 */
+    }
+
+    100% {
+        transform: rotate(360deg);
+        /* 结束状态 */
+    }
+}

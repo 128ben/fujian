@@ -1,0 +1,966 @@
+.pages {
+    padding: 0;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+
+    .gameInfo {
+        width: 100%;
+        background: #17243d;
+        z-index: 2;
+
+        .game_top_info {
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 2px;
+
+            .game_top {
+                display: flex;
+                align-items: center;
+
+                .revoke {
+                    margin: 0 8px 0 0;
+                    font-size: 24px;
+                }
+
+                .countDown {}
+
+                .nowPeriod {
+                    display: flex;
+                    align-items: center;
+                    color: #788CA3;
+                    margin: 4px 0 0;
+                    font-size: 14px;
+
+                    &>p:nth-child(2) {
+                        margin: 0 4px;
+                        color: #fff;
+                    }
+                }
+            }
+
+            .game_top_icon {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+
+                .gameIcon {
+                    width: 30px;
+                    height: 30px;
+                    border-radius: 6px;
+                    margin: 0 4px;
+                    padding: 2px;
+                    background: #3B82F6;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+
+                    i {
+                        font-size: 18px;
+                    }
+                }
+            }
+        }
+    }
+
+    .issueNum {
+        width: 100%;
+        padding: 4px 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-around;
+        background: #0C1026;
+        font-size: 12px;
+        color: #fff;
+
+        .flex_g {
+            width: 70%;
+            overflow: auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+
+            .item {
+                margin: 0 2px;
+
+                img {
+                    width: 22px;
+                    height: 22px;
+                }
+            }
+        }
+    }
+}
+
+.iframeBox {
+    width: 100%;
+    height: 220px;
+    border: none;
+    overflow: hidden;
+    padding: 1px;
+    position: relative;
+}
+
+.full-screen-iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+
+:deep(.ant-spin-text) {
+    text-shadow: none !important;
+}
+
+.colon {
+    color: #21FF04;
+    text-align: center;
+    font-family: "Future Earth";
+    font-size: 25px;
+    margin: 0 4px;
+}
+
+.van-count-down {
+    display: flex;
+    align-items: center;
+
+}
+
+.block {
+    display: flex;
+    height: 24px;
+    padding: 0 6px;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    border-radius: 5px;
+    border: 1px solid #788CA3;
+    background: #182234;
+    color: #21FF04;
+    text-align: center;
+    font-family: "Future Earth";
+    font-size: 20px;
+}
+
+.aboutStyle {
+    color: red;
+}
+
+.abouText {
+    margin: 0 0 0 6px;
+}
+
+.entertained {
+    color: red;
+    border: 1px solid red;
+    font-size: 16px;
+    text-align: center;
+    border-radius: 8px;
+}
+
+.cover {
+    width: 100%;
+    position: fixed;
+    z-index: 3;
+    top: 306px;
+    height: 100%;
+    overflow: auto;
+    background: rgba(3, 6, 22, 0.70);
+    backdrop-filter: blur(2.5px);
+
+    .predict {
+        width: 90%;
+        position: absolute;
+        left: 50%;
+        top: 10%;
+        transform: translate(-50%, -50%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+
+        p {
+            text-align: center;
+            color: #febe29;
+            font-weight: bold;
+            font-size: 22px;
+        }
+
+        .van-count-down {
+            margin: 20px 0 0;
+        }
+
+        span {
+            font-size: 40px;
+            color: #fff;
+            margin: 0 2px 0;
+        }
+    }
+}
+
+.betBox {
+    width: 100%;
+    flex: 1;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.Betting {
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+
+    .gameTabs {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 4px 0 0;
+
+        p {
+            flex: 1;
+            background-color: #030616;
+            border-radius: 16px 16px 0 0;
+            white-space: nowrap;
+            text-wrap: nowrap;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            padding: 6px 16px;
+        }
+
+        .act {
+            background: #182234;
+            color: #FEBE29;
+            font-weight: bold;
+        }
+    }
+
+    .ranking {
+        width: 100%;
+        display: grid;
+        grid-column-gap: 6px;
+        grid-row-gap: 6px;
+        grid-template-columns: repeat(5, 1fr);
+        padding: 6px 12px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        background: #182234;
+
+        .item {
+            width: 100%;
+            display: flex;
+            height: 30px;
+            padding: 4px;
+            justify-content: center;
+            align-items: center;
+            gap: 5px;
+            border-radius: 50px;
+            background: #030616;
+            font-size: 12px;
+        }
+
+        .tips {
+            animation: blink 1s linear;
+        }
+
+
+        .act {
+            border: 2px solid #fff;
+            background: linear-gradient(180deg, #04e3ff 0%, #3b67ff 100%);
+        }
+    }
+
+    .playNum {
+        display: flex;
+        height: 100%;
+        max-height: 280px;
+        padding: 0px 12px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+        align-self: stretch;
+        margin: 12px 0;
+
+        .lossNum {
+            display: flex;
+            padding: 0 8px;
+            justify-content: center;
+            align-items: center;
+            border-radius: 50px;
+            background: rgba(255, 255, 255, 0.20);
+            font-size: 12px;
+        }
+
+        .odd-even {
+            width: 100%;
+            height: 100%;
+            margin: 2px 0 0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            align-self: stretch;
+            text-transform: uppercase;
+
+            .item {
+                border: none;
+            }
+
+            & .item:nth-child(odd) {
+                background: linear-gradient(to bottom, #8ccfff, #0089ed);
+            }
+
+            & .item:nth-child(even) {
+                background: linear-gradient(to bottom, #ffb3b3, #f11111);
+            }
+
+            .rule {
+                position: absolute;
+                top: 2px;
+                right: 2px;
+                font-size: 12px;
+                border-radius: 50%;
+                border: 1px solid #fff;
+                color: #ed1c24;
+                font-weight: bold;
+                width: 15px;
+                height: 15px;
+                text-align: center;
+                line-height: 15px;
+            }
+
+            .ruleDiv {
+                position: absolute;
+                top: -24px;
+                right: 0;
+                font-size: 12px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: #fff;
+                color: #000;
+                padding: 1px 4px;
+                border-radius: 4px;
+
+                p {
+                    margin: 0 2px;
+                }
+
+                &::after {
+                    content: '';
+                    position: absolute;
+                    top: 100%;
+                    left: 74%;
+                    margin-left: -5px;
+                    border-width: 5px;
+                    border-style: solid;
+                    border-color: #fff transparent transparent transparent;
+                }
+            }
+
+            .act {
+                border: 2px solid #fff
+            }
+        }
+
+        .numberVal {
+            width: 100%;
+            height: 100%;
+            display: grid;
+            grid-column-gap: 5px;
+            grid-row-gap: 5px;
+            grid-template-columns: repeat(5, 1fr);
+
+            img {
+                width: 34px;
+                height: 34px;
+            }
+
+            .item {
+                background: #0C1026;
+            }
+
+            .act {
+                background: #636FF1;
+            }
+        }
+
+        .item {
+            width: 100%;
+            display: flex;
+            height: 100%;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 6px;
+            flex: 1 0 0;
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            background: #17243D;
+            position: relative;
+        }
+
+        .act {
+            border: 2px solid #fff;
+            background: #636FF1;
+        }
+
+        .absVal {
+            position: absolute;
+            right: 0px;
+            top: 0px;
+            display: flex;
+            padding: 2px;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border-radius: 5px;
+            font-size: 12px;
+            background: linear-gradient(180deg, #FFC200 0%, #F00 100%);
+            box-shadow: 2px 4px 4px 0px rgba(0, 0, 0, 0.50);
+        }
+    }
+}
+
+.footerSubmit {
+    width: 100%;
+    z-index: 2;
+    background: #182234;
+    padding: 0 6px 16px;
+
+    .footer_info {
+        width: 100%;
+        margin: 8px 0 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+
+        .footer_item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            color: #788CA3;
+
+            .item {
+                display: flex;
+                align-items: center;
+                margin: 0 10px 0 0;
+
+                p:nth-child(2) {
+                    margin: 0 4px;
+                    font-weight: bold;
+                    color: #fff;
+                }
+
+                .act {
+                    animation: award .5s linear infinite;
+                }
+            }
+        }
+
+    }
+
+    .footerBtn {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+
+        .btn {
+            display: flex;
+            padding: 4px 10px;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            border-radius: 5px;
+            margin: 0 0 0 8px;
+        }
+
+        .reset {
+            background: #0C1026;
+        }
+
+        .submit {
+            color: #000;
+            background: #FEBE29;
+        }
+    }
+}
+
+.chip {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+
+    img {
+        width: 34px;
+        height: 34px;
+    }
+
+    .slideBox {
+        overflow-x: scroll;
+        flex: 1 1 0%;
+
+        .inline_flex {
+            width: auto;
+            display: inline-flex;
+            margin: 6px 0 3px;
+
+            .chipItem {
+                display: inline-block;
+                position: relative;
+                margin-left: 4px;
+            }
+
+            .actChip {
+                img {
+                    width: 34px;
+                    height: 34px;
+                    border-radius: 50%;
+                    box-shadow: 0 0 12px rgb(242, 255, 0),
+                }
+
+                animation: scale 1.25s infinite;
+            }
+        }
+    }
+}
+
+.customBox {
+
+    .box {
+        overflow-y: scroll;
+        display: grid;
+        margin-top: 10px;
+        width: 100%;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+
+        .item {
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+
+            img {
+                width: 40px;
+                height: 40px;
+                border-radius: 50%;
+                box-shadow: 0 0 12px rgb(242, 255, 0),
+            }
+        }
+
+        .actChoose {
+            img {
+                box-shadow: none;
+            }
+        }
+    }
+
+    .inputBox {
+        width: 100%;
+        margin: 10px 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-around;
+
+        input {
+            height: 30px;
+            border-radius: 4px;
+            padding: 2px 6px;
+            outline: none;
+            border: none;
+            background: #081314;
+
+            &::placeholder {
+                color: rgba(255, 255, 255, 0.5);
+                font-size: 14px;
+            }
+        }
+
+        .btn {
+            height: 30px;
+            line-height: 28px;
+            font-size: 14px;
+            text-align: center;
+            padding: 2px 4vw;
+            color: #fff;
+            border-radius: 4px;
+            background: linear-gradient(to right bottom, rgb(0, 208, 186), rgb(106, 165, 253));
+        }
+    }
+
+    .footerBtn {
+        width: 96%;
+        margin: 20px auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-around;
+
+        .btn {
+            padding: 4px;
+            flex: 1;
+            height: 30px;
+            line-height: 28px;
+            font-size: 14px;
+            text-align: center;
+            padding: 2px 4vw;
+            color: #fff;
+            border-radius: 4px;
+            margin: 0 4px;
+        }
+
+        .confirm {
+            background: linear-gradient(to right bottom, rgb(0, 208, 186), rgb(106, 165, 253));
+        }
+
+        .cancel {
+            background: linear-gradient(to right, rgb(106, 106, 106), rgb(157, 157, 157));
+        }
+    }
+
+}
+
+.customChip {
+    position: relative;
+    margin: 6px 0 3px;
+
+    p {
+        position: absolute;
+        left: 50%;
+        top: 48%;
+        text-align: center;
+        width: 100%;
+        transform: translate(-50%, -50%);
+        font-size: 8px;
+    }
+}
+
+.customChipText {
+    position: relative;
+
+    p {
+        position: absolute;
+        left: 50%;
+        top: 46%;
+        text-align: center;
+        width: 100%;
+        transform: translate(-50%, -50%);
+    }
+}
+
+
+.popUp {
+    padding: 10px;
+}
+
+.rulePop {
+    display: flex;
+    align-items: center;
+    flex-direction: column;
+    overflow-y: scroll;
+    flex: 1 1 0%;
+    width: 100%;
+    padding-top: 40px;
+
+    p {
+        text-align: justify;
+        margin: 10px 0;
+        font-size: 15px;
+    }
+}
+
+.result_popBox {
+    overflow: auto;
+
+    .result_popHead {
+        width: 100%;
+        display: flex;
+        height: 50px;
+        padding: 11px;
+        justify-content: center;
+        align-items: center;
+        gap: 10px;
+        background: #202d43;
+    }
+
+    .result_resultBox {
+        padding: 10px 20px;
+
+        .table {
+            width: 100%;
+            border: 1px solid #606773;
+            border-radius: 8px;
+            overflow: hidden;
+
+            .title {
+                width: 100%;
+                padding: 4px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                background: linear-gradient(180deg, #212D43 0%, #030616 100%);
+
+                p {
+                    flex: 1;
+                    text-align: center;
+                }
+            }
+
+            .tableTd {
+                max-height: 40vh;
+                overflow: auto;
+
+                .item_row {
+                    width: 100%;
+                    height: 36px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    overflow: hidden;
+                    border-top: 1px solid #606773;
+
+                    p {
+                        flex: 1;
+                        height: 100%;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-style: 14px;
+                    }
+
+                    &>p:nth-child(2) {
+                        color: #32E138;
+                        border-left: 1px solid #606773;
+                        border-right: 1px solid #606773;
+                    }
+
+                    .number {
+                        height: 100%;
+                        flex: 1;
+                        display: flex;
+                        align-items: center;
+                        font-size: 14px;
+
+                        p {
+                            margin: 0 8px;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    .result_btn {
+        width: 90%;
+        height: 36px;
+        line-height: 40px;
+        color: #000;
+        background: #FEBE29;
+        margin: auto;
+        text-align: center;
+        border-radius: 6px;
+    }
+}
+
+:deep(.van-calendar__weekday),
+:deep(.van-calendar__day) {
+    color: #000;
+}
+
+:deep(.van-calendar__day--disabled) {
+    color: #c8c9cc;
+}
+
+@media screen and (max-width:376px) {
+    .footerSubmit {
+        padding: 0 6px 12px;
+        font-size: 12px;
+    }
+}
+
+@media screen and (min-width:390px) {
+    .Betting {
+        .ranking {
+            padding: 12px;
+        }
+
+        .playNum {
+            .numberVal {
+                img {
+                    width: 40px;
+                    height: 40px;
+                }
+            }
+
+            .item {
+                .itemName {
+                    font-size: 16px;
+                    font-weight: bold;
+                }
+
+                .lossNum {
+                    margin: 6px 0 0;
+                    font-weight: normal;
+                    font-size: 14px;
+                    padding: 0 10px;
+                }
+            }
+
+            .odd-even {
+                .rule {
+                    width: 20px;
+                    height: 20px;
+                    font-size: 17px;
+                    padding: 1.4px 0 0;
+                }
+
+                .ruleDiv {
+                    p {
+                        font-size: 14px;
+                        font-weight: normal;
+                    }
+                }
+            }
+        }
+    }
+
+
+}
+
+@media screen and (max-width:321px) {
+    .pages {
+        .gameInfo {
+            .game_top_info {
+                padding: 2px 6px 0;
+
+                .game_top {
+                    .nowPeriod {
+                        font-size: 12px;
+                    }
+
+                    .revoke {
+                        margin: 0 4px 0 0;
+                    }
+                }
+
+                .game_top_icon {
+                    .gameIcon {
+                        width: 26px;
+                        height: 26px;
+                    }
+                }
+            }
+        }
+    }
+
+    .iframeBox {
+        height: 181px;
+    }
+
+    .cover {
+        top: 267px;
+    }
+
+    .Betting {
+        .gameTabs {
+            p {
+                font-size: 12px;
+                padding: 4px 10px;
+            }
+        }
+
+        .ranking {
+            padding: 4px 12px;
+            grid-column-gap: 4px;
+            grid-row-gap: 4px;
+
+            .item {
+                height: 26px;
+                font-size: 10px !important;
+            }
+        }
+
+        .playNum {
+            margin: 6px 0;
+
+            .odd-even {
+                .item {
+                    font-size: 12px;
+                    padding: 6px 0;
+                }
+            }
+
+            .lossNum {
+                font-size: 10px;
+            }
+
+            .numberVal {
+                img {
+                    width: 25px;
+                    height: 25px;
+                }
+            }
+        }
+    }
+
+    .customChip {
+        margin: 4px 0 2px;
+    }
+
+    .chip {
+        .slideBox {
+            .inline_flex {
+                margin: 4px 0 2px;
+
+                .actChip img {
+                    width: 28px;
+                    height: 28px;
+                }
+            }
+        }
+
+        img {
+            width: 28px;
+            height: 28px;
+        }
+    }
+
+    .footerSubmit {
+        padding: 0 6px 6px;
+        font-size: 12px;
+
+        .footer_info {
+            margin: 3px 0 0;
+        }
+    }
+
+    .footerSubmit {
+        .footerBtn {
+
+            .btn {
+                font-size: 11px;
+                padding: 2px 6px;
+                border-radius: 5px;
+                margin: 0 0 0 4px;
+            }
+
+            .reset {
+                background: #0C1026;
+            }
+
+            .submit {
+                color: #000;
+                background: #FEBE29;
+            }
+        }
+    }
+}

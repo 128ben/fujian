@@ -1,0 +1,324 @@
+.popBox {
+    position: relative;
+
+    .popHead {
+        width: 100%;
+        display: flex;
+        height: 57px;
+        padding: 11px;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        background: #202d43;
+
+        .date {
+            display: flex;
+            padding: 6px 10px;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            border-radius: 50px;
+            border: 1px solid #788CA3;
+            color: #788CA3;
+            font-size: 12px;
+        }
+
+        .tab {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn {
+            margin: 0 4px;
+            display: flex;
+            padding: 6px 8px;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: #788CA3;
+            line-height: 1;
+        }
+
+        .act {
+            color: #fff;
+            border-radius: 5px;
+            border: 1px solid #636FF1;
+            background: #636FF1;
+        }
+    }
+
+    .trendVal {
+        background: #030616;
+    }
+
+    .list {
+        padding: 10px;
+        height: calc(400px - 57px);
+        overflow: auto;
+
+        .table {
+            width: 100%;
+            border: 1px solid #606773;
+            border-radius: 8px;
+            overflow: hidden;
+
+            .title {
+                width: 100%;
+                padding: 4px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                background: linear-gradient(180deg, #212D43 0%, #030616 100%);
+
+                p {
+                    flex: 1;
+                    font-size: 14px;
+                    text-align: center;
+                }
+            }
+
+            .tableTd {
+                max-height: 40vh;
+                overflow: auto;
+
+                .item_row {
+                    width: 100%;
+                    min-height: 36px;
+                    padding: 0 2px 0;
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    overflow: hidden;
+                    border-top: 1px solid #606773;
+                    position: relative;
+
+                    .type {
+                        position: absolute;
+                        background: #030616;
+                        padding: 0 6px;
+                        right: 0;
+                        top: 0;
+                        height: 100%;
+                        color: red;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        width: 19.2vw;
+                        line-height: 1;
+                        text-align: center;
+                    }
+
+                    .lookVal {
+                        color: #00EBFF;
+                        text-decoration: underline;
+                    }
+
+                    .itemNum {
+                        flex: 1;
+                    }
+
+                    p {
+                        flex: 1;
+                        height: 100%;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 12px;
+                    }
+                }
+            }
+        }
+    }
+
+    .openVallist {
+        padding: 10px;
+        height: calc(400px - 57px);
+        overflow: auto;
+
+        .item {
+            width: 100%;
+            height: 40px;
+            margin: 0 0 6px 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+
+            p {
+                font-size: 12px;
+            }
+
+            .numberRow {
+                width: 72%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+
+                .itemNumber {
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    margin: 0 2px;
+
+                    p {
+                        text-align: center;
+                    }
+
+                    img {
+                        width: 22px;
+                        height: 22px;
+                    }
+                }
+            }
+
+            .flexWrap {
+                flex-wrap: wrap;
+            }
+        }
+    }
+
+    .loadingBox {
+        height: 45vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .trendlist {
+        padding: 10px;
+        height: 45vh;
+        overflow: auto;
+
+        .item {
+            width: 100%;
+            height: 40px;
+            margin: 0 0 6px 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+
+            p {
+                font-size: 12px;
+            }
+
+            .numberRow {
+                width: 72%;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+
+                .itemNumber {
+                    width: 100%;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    margin: 0 2px;
+
+                    p {
+                        text-align: center;
+                    }
+
+                    img {
+                        width: 22px;
+                        height: 22px;
+                    }
+                }
+
+                .itemNumbers {
+                    width: 19.8px;
+                    height: 19.8px;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    margin: 0 2px;
+                    color: rgba(255, 255, 255, 0.30);
+                    border-radius: 50%;
+
+                    p {
+                        width: 100%;
+                        height: 100%;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                    }
+                }
+
+                .labelNum {
+                    border: 1px solid #00EBFF;
+                    color: #fff;
+                    position: relative;
+                    z-index: 0;
+                }
+            }
+        }
+    }
+}
+
+.valNum {
+    width: 91vw;
+    min-height: 80px;
+    max-height: 50vh;
+    border-radius: 8px;
+    overflow: auto;
+    text-align: center;
+    position: relative;
+
+    .title {
+        position: fixed;
+        width: 100%;
+        padding: 6px 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: #202d43;
+        margin: 0 0 6px 0;
+
+        p {
+            flex: 1;
+            font-size: 14px;
+            margin: 0 2px;
+        }
+    }
+
+    .box {
+        padding: 34px 0 10px 0;
+
+        .item {
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.30);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 14px;
+
+            p {
+                flex: 1;
+                height: 100%;
+            }
+        }
+
+        & .item:last-child {
+            border: none;
+        }
+    }
+}
+
+:deep(.van-popup) {
+    background: #fff !important;
+
+    .van-dialog__header {
+        padding: 10px 0;
+    }
+}
+
+.videoBox {
+    height: 200px;
+
+    #my-video {
+        width: 100%;
+        height: 100%;
+    }
+}

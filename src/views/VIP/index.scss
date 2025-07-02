@@ -1,0 +1,345 @@
+.head {
+    height: 44px;
+    background: #0c1026;
+    position: fixed;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+
+    i {
+        position: absolute;
+        left: 10px;
+    }
+}
+.pages{
+    padding: 44px 0 0;
+}
+.vipTop {
+    overflow: hidden;
+    position: relative;
+    height: 190px;
+
+    &::after {
+        content: "";
+        width: 120%;
+        height: 100%;
+        position: absolute;
+        left: -10%;
+        top: 0;
+        border-radius: 0 0 40% 40%;
+        background: #182234;
+    }
+
+    .avatar {
+        position: relative;
+        width: 62px;
+        height: 62px;
+        z-index: 1;
+
+        .crownImg {
+            width: 50px;
+            height: 50px;
+            position: absolute;
+            top: -30px;
+            left: -10px;
+        }
+
+        .inviterAvatar {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+        }
+    }
+
+    .userInfo {
+        margin: 0 0 0 6px;
+
+        .userName {
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .topVIP {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            img {
+                width: 50px;
+                height: 25px;
+            }
+        }
+    }
+
+    .nowVip {
+        position: absolute;
+        right: 10px;
+        top: 0;
+        width: 80px;
+        height: auto;
+        z-index: 1;
+    }
+
+    .vipProgress {
+        width: 90%;
+        margin: auto;
+        position: relative;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+
+        .ant-progress-line {
+            width: 60%;
+            margin: 0;
+        }
+
+        :deep(.ant-progress-outer) {
+            margin-inline-end: 0;
+            padding-inline-end: 0;
+        }
+
+        :deep(.ant-progress-text) {
+            display: none;
+        }
+
+        :deep(.ant-progress-inner) {
+            background-color: rgba(255, 249, 215, 0.2);
+        }
+
+        p {
+            display: flex;
+            width: 50px;
+            height: 20px;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            border-radius: 50px;
+            border-bottom: 1px solid #fff;
+            background: #0a84ff;
+            font-size: 11px;
+        }
+
+        &>p:last-child {
+            color: #000;
+            background: linear-gradient(90deg, #ffe87f 0%, #e8b745 100%);
+        }
+    }
+
+    .exaltText {
+        width: 90%;
+        margin: 10px auto;
+        position: relative;
+        z-index: 1;
+        color: #788ca3;
+        font-size: 13px;
+        font-weight: bold;
+    }
+}
+
+.vipInfoBox {
+    position: relative;
+    padding: 30px 10px 10px;
+
+    .btn {
+        margin: auto;
+        position: absolute;
+        left: 50%;
+        top: -5px;
+        transform: translate(-50%, -50%);
+        z-index: 1;
+        font-size: 14px;
+        display: flex;
+        max-width: 168px;
+        padding: 6px 18px;
+        justify-content: center;
+        align-items: center;
+        gap: 8px;
+        border-radius: 10px;
+        background: #636ff1;
+    }
+
+    .nowVIPInfo {
+        background: #0c1026;
+        border-radius: 8px;
+
+        &>.flex_row:first-child {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .flex_row {
+            width: 100%;
+            padding: 6px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+
+            p {
+                width: 65px;
+                text-align: center;
+            }
+        }
+    }
+
+    .vipBanner {
+        margin: 20px 0;
+
+        :deep(.van-tabs__nav--complete) {
+            padding-left: 0;
+        }
+
+        :deep(.van-tab__text) {
+            font-size: 12px;
+        }
+
+
+    }
+}
+
+.vipCard {
+    width: 96%;
+    margin: 10px auto;
+    height: 108px;
+    background: url("@/assets/img/bannerVip.png") no-repeat;
+    background-size: cover;
+    border-radius: 8px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+
+    .bannerImgTop {
+        position: absolute;
+        top: 0;
+        right: 5px;
+        width: 90px;
+        height: auto;
+        z-index: 2;
+    }
+
+    .title {
+        color: #FFF;
+        font-size: 28px;
+        font-weight: 700;
+        margin: 0 0 0 6px;
+        text-transform: uppercase;
+    }
+
+    .line {
+        width: 100%;
+        height: 6px;
+    }
+
+    .backColor0 {
+        background: linear-gradient(90deg, rgba(179, 179, 179, 0.5) 0%, rgba(111, 111, 111, 0.5) 100%);
+    }
+
+    .backColor1 {
+        background: linear-gradient(90deg, rgba(156, 211, 255, 0.50) 0%, rgba(82, 155, 250, 0.50) 100%);
+    }
+
+    .backColor2 {
+        background: linear-gradient(90deg, rgba(178, 156, 255, 0.50) 0%, rgba(132, 82, 250, 0.50) 100%);
+    }
+
+    .backColor3 {
+        background: linear-gradient(90deg, rgba(255, 246, 237, 0.50) 0%, rgba(226, 163, 108, 0.50) 100%);
+    }
+
+    .backColor4 {
+        background: linear-gradient(90deg, rgba(255, 246, 216, 0.50) 0%, rgba(254, 233, 114, 0.50) 100%);
+    }
+
+    .itemInfo {
+        margin: 0 0 0 6px;
+
+        display: flex;
+        align-items: center;
+        color: #788CA3;
+        font-size: 12px;
+
+        &>p:last-child {
+            color: #fff;
+            font-size: 14px;
+        }
+    }
+}
+
+.vipInfoTetx {
+    width: 96%;
+    margin: 20px auto;
+
+    .title {
+        height: 20px;
+        display: flex;
+        align-items: center;
+
+        .line {
+            height: 90%;
+            width: 4px;
+            margin: 0 6px 0 0;
+            background-color: #636FF1;
+        }
+    }
+
+    .flexBox {
+        margin: 10px 0 0;
+        display: grid;
+        grid-column-gap: 20px;
+        grid-row-gap: 20px;
+        grid-template-columns: repeat(2, 1fr);
+
+        .item {
+            width: 100%;
+            display: flex;
+            align-items: center;
+
+            img {
+                width: 38px;
+                height: 38px;
+                margin: 0 6px 0 0;
+            }
+
+            div {
+                p {
+                    font-size: 12px;
+                    color: #788CA3;
+                }
+
+                &>p:last-child {
+                    font-size: 14px;
+                    color: #fff;
+                }
+            }
+        }
+    }
+}
+
+.flex {
+    display: flex;
+}
+
+.align {
+    align-items: center;
+}
+
+.full-width {
+    width: 100%;
+}
+
+.relative {
+    position: relative;
+}
+
+.zIndex {
+    z-index: 1;
+}
+
+.padding20 {
+    padding: 20px;
+}

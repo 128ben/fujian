@@ -1,0 +1,575 @@
+.pages {
+    padding: 20px 16px 5px;
+
+    .userInfo {
+        width: 100%;
+        height: 62px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+
+        .flex {
+            height: 100%;
+            display: flex;
+            align-items: center;
+
+            .idCopy {
+                display: flex;
+                align-items: center;
+
+                p {
+                    margin: 0 4px 0 0;
+                }
+            }
+
+            img {
+                width: 62px;
+                height: 62px;
+                margin: 0 12px 0 0;
+                border-radius: 50%;
+            }
+
+            .langIcon {
+                width: 24px;
+                height: 24px;
+                margin: 0;
+            }
+
+            i {
+                font-size: 24px;
+
+                &:first-child {
+                    margin: 0 16px 0 0;
+                }
+            }
+
+            &>div {
+                height: 100%;
+                display: flex;
+                justify-content: space-around;
+                flex-direction: column;
+                line-height: 1;
+            }
+
+            &>div>p:first-child {
+                font-weight: bold;
+            }
+
+            &>div>p:nth-child(2) {
+                color: #ddd;
+                font-size: 14px;
+            }
+
+            &>div>p:last-child {
+                color: #788ca3;
+                font-size: 14px;
+            }
+        }
+    }
+
+    .userData {
+        margin: 16px 0;
+        display: flex;
+        padding: 16px 10px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 14px;
+        border-radius: 10px;
+        background: #182234;
+
+        .user_vip {
+            display: flex;
+            padding: 8px 4px;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            align-self: stretch;
+            border-radius: 10px;
+            border: 1px solid #788ca3;
+            background: #293447;
+
+            .flex {
+                width: 100%;
+                display: flex;
+                align-items: center;
+
+                p {
+                    display: flex;
+                    width: 50px;
+                    height: 20px;
+                    flex-direction: column;
+                    justify-content: center;
+                    align-items: center;
+                    gap: 10px;
+                    border-radius: 50px;
+                    border-bottom: 1px solid #fff;
+                    background: #0a84ff;
+                    font-size: 11px;
+                }
+
+                &>p:last-child {
+                    color: #000;
+                    background: linear-gradient(90deg, #ffe87f 0%, #e8b745 100%);
+                }
+
+                .progress {
+                    width: 100%;
+                    margin: 0 8px;
+                }
+
+                :deep(.ant-progress-outer) {
+                    margin-inline-end: 0;
+                    padding-inline-end: 0;
+                }
+
+                :deep(.ant-progress-text) {
+                    display: none;
+                }
+
+                :deep(.ant-progress-inner) {
+                    background-color: rgba(255, 249, 215, 0.2);
+                }
+            }
+
+            .flex_rule {
+                width: 100%;
+                margin: 0 0 2px 0;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                font-size: 12px;
+
+                .flex_icon {
+                    display: flex;
+                    align-items: center;
+                }
+            }
+
+            .flex_equity {
+                width: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                font-size: 11px;
+
+                .item {
+                    flex: 1;
+                    margin: 0 4px;
+                    display: flex;
+                    align-items: center;
+                    flex-direction: column;
+                    gap: 3px;
+                    padding: 2px;
+                    border-radius: 10px;
+                    background: rgba(99, 111, 241, 0.15);
+                    color: #788ca3;
+
+                    img {
+                        margin: -10px 0 0;
+                    }
+
+                    p {
+                        text-align: center;
+                        height: 33px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        line-height: 1;
+                    }
+
+                    &>p:last-child {
+                        height: auto;
+                        color: #fff;
+                    }
+                }
+            }
+        }
+
+        .user_balance {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+
+            .u_b_box {
+                height: 100%;
+
+                .flex {
+                    display: flex;
+                    align-items: center;
+                    margin: 6px 0 4px;
+                    color: #788ca3;
+
+                    i {
+                        margin: 0 0 0 6px;
+                    }
+                }
+
+                .user_balanceVal {
+                    display: flex;
+                    align-items: center;
+
+                    p {
+                        font-size: 22px;
+                        font-weight: 700;
+                    }
+
+                    .act {
+                        animation: award .5s linear infinite;
+                    }
+                }
+            }
+
+            .u_b_fun {
+                display: flex;
+                align-items: center;
+
+                .item {
+                    text-align: center;
+                    margin: 0 10px;
+                    font-size: 12px;
+                    font-weight: 700;
+                }
+            }
+        }
+    }
+
+    .userFun {
+        position: relative;
+        width: 100%;
+
+        .boxBG {
+            width: 100%;
+            position: relative;
+
+            .text {
+                position: absolute;
+                top: 6px;
+                left: 50px;
+                font-weight: 700;
+                line-height: 1.2;
+
+                p:last-child {
+                    font-size: 22px;
+                }
+            }
+
+            .flex_text {
+                position: absolute;
+                top: 20px;
+                right: 14px;
+                font-weight: 700;
+                line-height: 1.2;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+
+                p {
+                    color: #182234;
+                    font-weight: 700;
+                    font-size: 16px;
+                }
+
+                .icon {
+                    display: flex;
+                    width: 16px;
+                    height: 16px;
+                    padding: 10px;
+                    flex-direction: column;
+                    justify-content: center;
+                    align-items: center;
+                    gap: 10px;
+                    margin: 0 0 1px 4px;
+                    border-radius: 50px;
+                    background: rgba(255, 255, 255, 0.8);
+
+                    svg {
+                        width: 22px;
+                        height: 14px;
+                        flex-shrink: 0;
+                    }
+                }
+            }
+
+            .usergiftImg {
+                width: 60px;
+                height: 60px;
+                position: absolute;
+                top: -6px;
+                left: -6px;
+            }
+
+            img {
+                width: 100%;
+            }
+        }
+
+        .flexBox {
+            width: 100%;
+            margin-top: -34px;
+            position: relative;
+            z-index: 1;
+            display: grid;
+            grid-column-gap: 2px;
+            grid-row-gap: 10px;
+            grid-template-columns: repeat(4, 1fr);
+            padding: 16px 6px;
+            border-radius: 10px;
+            background: #182234;
+
+            .item {
+                overflow: hidden;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-direction: column;
+                font-size: 12px;
+
+                img {
+                    width: 40px;
+                    height: 40px;
+                }
+
+                p {
+                    margin: 8px 0 0 0;
+                    white-space: nowrap;
+                }
+            }
+        }
+    }
+
+
+}
+
+.user_inviteBox {
+    width: 90%;
+    margin: auto;
+    height: 70px;
+    background: url("@/assets/img/userFooter.png") no-repeat;
+    background-position: center;
+    background-size: cover;
+    display: flex;
+    padding: 0 10px;
+    border-radius: 8px;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    font-size: 14px;
+
+    p:last-child {
+        width: max-content;
+        margin: 2px 0 0;
+        padding: 2px 8px;
+        border-radius: 200px;
+        border: 1px solid #FF00E6;
+        background: #5E00FF;
+        color: #FFFF0E;
+        font-weight: bold;
+        font-size: 16px;
+    }
+}
+
+.outLoginBtn {
+    width: 90%;
+    margin: 10px auto;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    background: #6366f1;
+}
+
+.van-progress__pivot,
+.van-progress {
+    height: 7px;
+}
+
+.userInfo {
+    animation: slide-top 0.6s;
+}
+
+.userData {
+    animation: flip 0.4s ease-in-out forwards;
+}
+
+.userFun {
+    animation: slide-bottom 0.6s;
+}
+
+.user_inviteBox {
+    animation: slide-bottom 0.6s;
+}
+
+@media screen and (max-width:321px) {
+    .pages {
+        .userData {
+            padding: 12px 6px;
+
+            .user_vip {
+                .flex_rule {
+                    font-size: 11px;
+                }
+            }
+
+            .user_balance {
+                .u_b_box {
+                    .flex {
+                        p {
+                            font-size: 12px;
+                        }
+                    }
+                }
+            }
+        }
+
+        .userFun {
+            .boxBG {
+                .text {
+                    &>p:last-child {
+                        font-size: 18px;
+                    }
+                }
+
+                .flex_text {
+                    right: 8px;
+                    top: 16px
+                }
+            }
+
+            .flexBox {
+                margin-top: -20px;
+            }
+        }
+    }
+}
+
+.van-popup {
+    background: none !important;
+}
+
+.levelBox {
+    width: 90vw;
+    min-height: 50vh;
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+
+    .light {
+        position: absolute;
+        z-index: -1;
+        top: -5vh;
+        width: 110%;
+        animation: award 4s linear infinite;
+    }
+}
+
+.levelPop {
+    width: 76vw;
+    position: relative;
+    z-index: 2;
+    border-radius: 8px;
+    overflow: hidden;
+
+    .content {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+
+        .vipIcon {
+            position: relative;
+            width: 50vw;
+            margin: auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+
+            img {
+                width: 100%;
+            }
+
+            .nowVal {
+                position: absolute;
+                top: 5vh;
+                margin-left: 4px;
+                color: #CA47FB;
+                text-align: center;
+                font-family: "Microsoft YaHei UI";
+                font-size: 30px;
+                font-weight: 700;
+                line-height: 120%;
+                text-transform: uppercase;
+            }
+
+            .vipText {
+                position: absolute;
+                top: 12vh;
+                margin-left: 4px;
+                color: #FFF;
+                text-align: center;
+                text-shadow: 1px 1px 0px #FF8000;
+                font-family: "Microsoft YaHei UI";
+                font-size: 20px;
+                font-style: normal;
+                font-weight: 700;
+                line-height: 120%;
+                text-transform: uppercase;
+            }
+        }
+
+        .flexBox {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+
+            .flexIcon {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+
+                img {
+                    width: 22px;
+                    margin: 0 4px 0 0;
+                }
+
+                p {
+                    color: #FFDB10;
+                    font-family: "Microsoft YaHei UI";
+                    font-size: 22px;
+                    font-weight: 700;
+                    line-height: 120%;
+                    text-transform: uppercase;
+                }
+            }
+        }
+    }
+
+    .btn {
+        display: flex;
+        width: 90px;
+        margin: 10px auto;
+        padding: 8px 10px;
+        justify-content: center;
+        align-items: center;
+        gap: 10px;
+        border-radius: 500px;
+        background: linear-gradient(0deg, #FEBE29 0%, #FF0 100%);
+        color: #000;
+        font-family: "Microsoft YaHei UI";
+        font-size: 14px;
+        font-weight: 700;
+    }
+}
+
+@media screen and (max-height:667px) {
+    .levelPop .content .vipIcon .vipText {
+        top: 14vh;
+        font-size: 16px;
+    }
+}
