@@ -578,6 +578,39 @@ export class PixiChart {
     this.updateView();
   }
   
+  // 清空所有数据和视觉元素
+  clearData() {
+    console.log('PixiChart: 清空数据和视觉元素');
+    
+    // 清空数据
+    this.data = [];
+    this.lastEndPoint = null;
+    this.latestPrice = null;
+    
+    // 重置价格范围
+    this.priceRange = { min: 95, max: 105 };
+    
+    // 清空所有图形
+    this.lineGraphics.clear();
+    this.latestPriceLineGraphics.clear();
+    this.pulseGraphics.clear();
+    
+    // 隐藏价格标签
+    if (this.latestPriceLabel) {
+      this.latestPriceLabel.visible = false;
+    }
+    
+    // 重置动画状态
+    this.animationState.isAnimating = false;
+    this.animationState.pendingAnimations = [];
+    this.animationState.currentProgress = 0;
+    
+    // 重新绘制网格
+    this.drawGrid();
+    
+    console.log('PixiChart: 数据清空完成');
+  }
+  
   resize(width, height) {
     this.options.width = width;
     this.options.height = height;

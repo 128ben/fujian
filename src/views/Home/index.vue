@@ -112,20 +112,12 @@
           :minX="-leftData.length"
           :maxDataPoints="50000"
           :enablePerformanceMonitor="true" /> -->
-          <!-- <RealtimeChart 
-            :generateNewDataPoint="genNew"
-            :realTimeData="realTimeData"
-            :currentPrice="placeOrderForm.buyAmount"
-            :enableXAxisMovement="true"
-            :xAxisMovementInterval="1000"
-            :xAxisMovementStep="500"
-            :xAxisPixelsPerSecond="50"
-          /> -->
           <PriceChart 
             :realTimeData="chartRealTimeData"
             :currentPriceData="placeOrderForm.buyAmount"
             :useExternalData="true"
             :renderDelay="1000"
+            :dataSourceId="placeOrderForm.type"
             ref="priceChartRef"
           />
       </div>
@@ -396,7 +388,7 @@ const isShow = ref(true);
 // PriceChart 相关数据
 const priceChartRef = ref(null);
 const chartRealTimeData = ref([]);
-let chartDataBuffer = []; // 数据缓冲区，用于批量传递给图表组件
+const chartDataBuffer = ref([]); // 数据缓冲区，用于批量传递给图表组件
 
 // 首页数据
 const currencyList = ref([]);
@@ -423,12 +415,25 @@ const isModalVisibleOrder = ref(false);// 进行中订单列表弹窗
 // 监听 placeOrderForm 的变化并同步  切换数据源
 watch(
   () => placeOrderForm.value.type,
-  (newVal) => {
+  (newVal, oldVal) => {
+    console.log(`数据源切换检测: ${oldVal} -> ${newVal}`);
+    
     typeRef.value = placeOrderForm.value.type;
     showChart.value = false;
-    realTimeData.value = []
-    canUpdate = false
-    send()
+    realTimeData.value = [];
+    canUpdate = false;
+    
+    // 清理图表数据缓冲区
+    clearChartDataBuffer();
+    
+    // 重置图表组件
+    if (priceChartRef.value) {
+      console.log('重置PriceChart组件');
+      priceChartRef.value.resetChart();
+    }
+    
+    console.log(`发送新的WebSocket订阅请求: ${newVal}`);
+    send();
   }
 );
 // 走势图
@@ -562,6 +567,8 @@ function createWebSocket() { //数据获取
     const obj = JSON.parse(res);
     if (obj.success == 200) {
       if (obj.data.type == 'history') {
+        console.log(`接收到${obj.data.info[0]?.chain || 'unknown'}的历史数据:`, obj.data.info.length, '条');
+        
         data.value = obj.data.info.map(d => {
           return {
             y: Number(d.amount), // 转换成数字
@@ -576,8 +583,11 @@ function createWebSocket() { //数据获取
           price: Number(d.amount),
           volume: Math.floor(Math.random() * 10000),
           label: d.ts,
-          y: Number(d.amount)
+          y: Number(d.amount),
+          source: typeRef.value // 添加数据源标识
         }));
+        
+        console.log(`准备添加${historyDataForChart.length}条历史数据到图表`);
         
         // 批量添加历史数据到图表
         historyDataForChart.forEach(dataPoint => {
@@ -590,10 +600,16 @@ function createWebSocket() { //数据获取
         showChart.value = true
         canUpdate = true
         isShow.value = false
+        
+        console.log(`${typeRef.value}历史数据加载完成，开始接收实时数据`);
       } else if (obj.data.type == 'realTimeNotify') { //|| obj.data.type == 'realTimeNotifyKline'
-        // console.log("最新数据:", obj.data);
+        console.log("WebSocket最新数据:", obj.data);
         let d = obj.data.info
+        console.log(`数据链类型: ${d.chain}, 当前选择: ${typeRef.value}, 匹配: ${typeRef.value == d.chain}`);
+        
         if (canUpdate && typeRef.value == d.chain) {
+          console.log(`处理${d.chain}的实时数据:`, d);
+          
           // 改数据
           if (ycArr.length) {
             ycArr.sort((a, b) => a.strikeTime - b.strikeTime)
@@ -605,6 +621,8 @@ function createWebSocket() { //数据获取
 
               if (item.order.open_price > d.idxPx != item.order.open_price > item.end_price) {
                 d.idxPx = item.end_price
+                console.log(`修改${d.chain}数据价格为:`, d.idxPx);
+                
                 // 添加数据到图表缓冲区
                 addDataToChartBuffer({
                   timestamp: d.ts,
@@ -612,7 +630,8 @@ function createWebSocket() { //数据获取
                   volume: Math.floor(Math.random() * 10000),
                   label: d.ts,
                   y: Number(d.idxPx),
-                  idxPx: d.idxPx
+                  idxPx: d.idxPx,
+                  source: d.chain
                 });
                 realTimeData.value.push({
                   y: Number(d.idxPx), // 转换成数字
@@ -637,6 +656,12 @@ function createWebSocket() { //数据获取
             }
           } else {
             if (prev && new Date().getTime() - prev > 400) {
+              console.log(`添加${d.chain}实时数据到图表:`, {
+                timestamp: d.ts,
+                price: Number(d.idxPx),
+                chain: d.chain
+              });
+              
               // 添加数据到图表缓冲区
               addDataToChartBuffer({
                 timestamp: d.ts,
@@ -644,7 +669,8 @@ function createWebSocket() { //数据获取
                 volume: Math.floor(Math.random() * 10000),
                 label: d.ts,
                 y: Number(d.idxPx),
-                idxPx: d.idxPx
+                idxPx: d.idxPx,
+                source: d.chain
               });
               realTimeData.value.push({
                 y: Number(d.idxPx), // 转换成数字
@@ -658,6 +684,8 @@ function createWebSocket() { //数据获取
 
           // 改数据end
           placeOrderForm.value.buyAmount = Number(d.idxPx)
+        } else {
+          console.log(`忽略${d.chain}数据 - canUpdate: ${canUpdate}, 类型匹配: ${typeRef.value == d.chain}`);
         }
       } else if (obj.data.type == 'historyOld') { //请求历史数据
         let arr = obj.data.info.map((d, i) => {
@@ -690,8 +718,11 @@ function send() {
   let args = wsTy[wsUse].args
   args.chain = typeRef.value
   args.timeframes = 1
-  // console.log(args)
+  
   const msg = JSON.stringify(args);
+  console.log(`发送WebSocket消息:`, args);
+  console.log(`消息内容:`, msg);
+  
   // 发送消息
   ws.send(msg);
 }
@@ -743,11 +774,15 @@ const chengeType = (v) => {
   typeActive.value = JSON.parse(JSON.stringify(v));
 };
 const handleChange = () => {
+  console.log(`用户选择货币切换: ${placeOrderForm.value.type} -> ${typeActive.value.name}`);
+  
   isShow.value = true
   placeOrderForm.value.type = typeActive.value.name
   // 更新利率
   interestRate.value = typeActive.value.interest_rate;
   isModalVisible.value = false;
+  
+  console.log(`货币切换完成，新类型: ${placeOrderForm.value.type}, 新利率: ${interestRate.value}`);
 };
 // 时间切换和弹窗
 const decreaseTime = () => {
@@ -1236,21 +1271,31 @@ const updateParentHeight = () => {
 
 // 添加数据到图表缓冲区
 function addDataToChartBuffer(dataPoint) {
-  chartDataBuffer.push(dataPoint);
+  // 验证数据源是否匹配当前选择的类型
+  if (dataPoint.source && dataPoint.source !== typeRef.value) {
+    console.log(`数据源不匹配，忽略数据: ${dataPoint.source} vs ${typeRef.value}`);
+    return;
+  }
+  
+  chartDataBuffer.value.push(dataPoint);
   
   // 添加调试信息
-  console.log('添加数据到图表缓冲区:', dataPoint);
-  console.log('当前缓冲区大小:', chartDataBuffer.length);
+  console.log(`添加${dataPoint.source || 'unknown'}数据到图表缓冲区:`, {
+    timestamp: dataPoint.timestamp,
+    price: dataPoint.price,
+    source: dataPoint.source
+  });
+  console.log('当前缓冲区大小:', chartDataBuffer.value.length);
   
   // 每隔500ms批量更新图表数据
   if (!window.chartUpdateTimer) {
     window.chartUpdateTimer = setInterval(() => {
-      if (chartDataBuffer.length > 0) {
-        console.log('批量更新图表数据，数量:', chartDataBuffer.length);
+      if (chartDataBuffer.value.length > 0) {
+        console.log(`批量更新图表数据，数量: ${chartDataBuffer.value.length}, 数据源: ${typeRef.value}`);
         // 将缓冲区数据复制到图表数据中
-        chartRealTimeData.value = [...chartDataBuffer];
+        chartRealTimeData.value = [...chartDataBuffer.value];
         // 清空缓冲区
-        chartDataBuffer = [];
+        chartDataBuffer.value = [];
       }
     }, 500);
   }
@@ -1258,11 +1303,13 @@ function addDataToChartBuffer(dataPoint) {
 
 // 清理图表数据缓冲区
 function clearChartDataBuffer() {
-  chartDataBuffer = [];
+  console.log(`清理图表数据缓冲区，当前数据源: ${typeRef.value}`);
+  chartDataBuffer.value = [];
   chartRealTimeData.value = [];
   if (window.chartUpdateTimer) {
     clearInterval(window.chartUpdateTimer);
     window.chartUpdateTimer = null;
+    console.log('清理图表更新定时器');
   }
 }
 </script>

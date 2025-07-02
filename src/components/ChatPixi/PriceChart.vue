@@ -23,6 +23,12 @@
           <span class="label">变化:</span>
           <span class="value" :class="priceChangeClass">{{ priceChange }}%</span>
         </span>
+        <span class="stat-item">
+          <span class="label">数据源:</span>
+          <span class="value" :class="{ 'switching': isDataSourceSwitching }">
+            {{ isDataSourceSwitching ? '切换中...' : currentDataSourceId }}
+          </span>
+        </span>
       </div>
       <div class="control-buttons">
         <button @click="zoomIn" class="control-btn">
@@ -98,6 +104,11 @@ const props = defineProps({
   renderDelay: {
     type: Number,
     default: 1000
+  },
+  // 数据源标识符，用于检测数据源切换
+  dataSourceId: {
+    type: String,
+    default: 'default'
   }
 });
 
@@ -113,6 +124,10 @@ const tooltipStyle = ref({});
 const connectionStatus = ref('connecting');
 const showLatestPriceLine = ref(true);
 const animationEnabled = ref(false);
+
+// 数据源切换状态
+const currentDataSourceId = ref(props.dataSourceId);
+const isDataSourceSwitching = ref(false);
 
 // 计算属性
 const priceChangeClass = computed(() => {
@@ -152,16 +167,40 @@ onUnmounted(() => {
 // 监听外部数据变化
 watch(
   () => props.realTimeData,
-  (newData) => {
+  (newData, oldData) => {
+    // 检查是否在数据源切换中，如果是则忽略旧数据
+    if (isDataSourceSwitching.value) {
+      console.log('数据源切换中，忽略数据更新');
+      return;
+    }
+    
     if (props.useExternalData && newData && newData.length > 0) {
-      // 处理新的外部数据
-      newData.forEach(dataPoint => {
-        if (dataManager) {
-          // 转换外部数据格式为内部格式
-          const formattedData = formatExternalData(dataPoint);
-          dataManager.addExternalData(formattedData);
-        }
-      });
+      // 检查数据是否真的有变化（避免重复处理相同数据）
+      const hasNewData = !oldData || newData.length !== oldData.length || 
+        newData.some((item, index) => !oldData[index] || 
+          item.timestamp !== oldData[index].timestamp || 
+          item.price !== oldData[index].price ||
+          item.y !== oldData[index].y ||
+          item.idxPx !== oldData[index].idxPx
+        );
+      
+      if (hasNewData) {
+        console.log(`处理新数据: ${newData.length} 条`);
+        
+        // 处理新的外部数据
+        newData.forEach((dataPoint, index) => {
+          if (dataManager) {
+            // 转换外部数据格式为内部格式
+            const formattedData = formatExternalData(dataPoint);
+            
+            // 添加序列号以便调试
+            formattedData.sourceIndex = index;
+            formattedData.dataSourceId = props.dataSourceId;
+            
+            dataManager.addExternalData(formattedData);
+          }
+        });
+      }
     }
   },
   { deep: true, immediate: true }
@@ -181,6 +220,30 @@ watch(
     }
   },
   { immediate: true }
+);
+
+// 监听数据源切换
+watch(
+  () => props.dataSourceId,
+  (newDataSourceId, oldDataSourceId) => {
+    if (newDataSourceId !== oldDataSourceId && oldDataSourceId !== undefined) {
+      console.log(`数据源切换: ${oldDataSourceId} -> ${newDataSourceId}`);
+      handleDataSourceSwitch(newDataSourceId);
+    }
+  },
+  { immediate: false }
+);
+
+// 监听useExternalData变化，处理数据源模式切换
+watch(
+  () => props.useExternalData,
+  (newValue, oldValue) => {
+    if (newValue !== oldValue && oldValue !== undefined) {
+      console.log(`数据源模式切换: ${oldValue} -> ${newValue}`);
+      handleDataSourceModeSwitch(newValue);
+    }
+  },
+  { immediate: false }
 );
 
 // 初始化图表
@@ -214,6 +277,17 @@ function setupDataManager() {
       if (pixiChart) {
         pixiChart.addData(data);
       }
+    } else if (event === 'dataCleared') {
+      // 数据被清空时，同步清理图表
+      console.log('数据管理器数据已清空，同步清理图表');
+      if (pixiChart) {
+        pixiChart.clearData(); // 使用专门的清空方法
+      }
+      
+      // 重置统计数据
+      queuedData.value = 0;
+      renderedData.value = 0;
+      updateFrequency.value = 0;
     }
   });
 }
@@ -286,14 +360,18 @@ function toggleAnimation() {
 }
 
 function resetChart() {
+  console.log('重置图表...');
+  
   // 清空数据
   if (dataManager) {
     dataManager.clear();
+    console.log('数据管理器已清空');
   }
   
-  // 重置图表视图
+  // 重置图表视图和数据 - 使用新的clearData方法
   if (pixiChart) {
-    pixiChart.resetView();
+    pixiChart.clearData(); // 使用专门的清空方法
+    console.log('图表已清空并重绘');
   }
   
   // 重置状态
@@ -302,6 +380,12 @@ function resetChart() {
   queuedData.value = 0;
   renderedData.value = 0;
   updateFrequency.value = 0;
+  lastPriceValue = props.currentPriceData || 100;
+  
+  // 重置连接状态
+  connectionStatus.value = 'connected';
+  
+  console.log('图表重置完成');
 }
 
 // 手动添加数据的方法（供外部调用）
@@ -310,6 +394,71 @@ function addData(dataPoint) {
     const formattedData = formatExternalData(dataPoint);
     dataManager.addExternalData(formattedData);
   }
+}
+
+// 处理数据源切换
+function handleDataSourceSwitch(newDataSourceId) {
+  isDataSourceSwitching.value = true;
+  connectionStatus.value = 'connecting';
+  
+  try {
+    console.log('开始数据源切换处理...');
+    
+    // 1. 清理当前数据
+    if (dataManager) {
+      dataManager.clear();
+      console.log('数据管理器已清空');
+    }
+    
+    // 2. 清理图表显示 - 使用新的clearData方法
+    if (pixiChart) {
+      pixiChart.clearData(); // 使用专门的清空方法
+      console.log('图表已清空');
+    }
+    
+    // 3. 重置状态变量
+    currentPrice.value = props.currentPriceData || 100;
+    priceChange.value = 0;
+    queuedData.value = 0;
+    renderedData.value = 0;
+    updateFrequency.value = 0;
+    lastPriceValue = props.currentPriceData || 100;
+    
+    // 4. 更新当前数据源ID
+    currentDataSourceId.value = newDataSourceId;
+    
+    console.log('数据源切换完成');
+    connectionStatus.value = 'connected';
+    
+  } catch (error) {
+    console.error('数据源切换失败:', error);
+    connectionStatus.value = 'disconnected';
+  } finally {
+    isDataSourceSwitching.value = false;
+  }
+}
+
+// 处理数据源模式切换
+function handleDataSourceModeSwitch(useExternal) {
+  console.log('处理数据源模式切换:', useExternal);
+  
+  // 清理现有数据
+  if (dataManager) {
+    dataManager.clear();
+  }
+  
+  // 重置图表 - 使用新的clearData方法
+  if (pixiChart) {
+    pixiChart.clearData();
+  }
+  
+  // 重置状态
+  currentPrice.value = props.currentPriceData || 100;
+  priceChange.value = 0;
+  queuedData.value = 0;
+  renderedData.value = 0;
+  updateFrequency.value = 0;
+  lastPriceValue = props.currentPriceData || 100;
 }
 
 // 获取图表实例（供外部调用）
@@ -354,7 +503,20 @@ defineExpose({
   getChartInstance,
   getDataManager,
   zoomIn,
-  zoomOut
+  zoomOut,
+  // 新增的数据源切换相关方法
+  handleDataSourceSwitch,
+  handleDataSourceModeSwitch,
+  // 获取当前状态的方法
+  getCurrentDataSourceId: () => currentDataSourceId.value,
+  isDataSourceSwitching: () => isDataSourceSwitching.value,
+  // 强制刷新方法
+  forceRefresh: () => {
+    if (pixiChart) {
+      pixiChart.drawChart();
+      pixiChart.drawGrid();
+    }
+  }
 });
 </script>
 
@@ -408,6 +570,11 @@ defineExpose({
 
 .price-down {
   color: #ff4444;
+}
+
+.switching {
+  color: #ffa500;
+  animation: pulse 1s infinite;
 }
 
 .control-buttons {
