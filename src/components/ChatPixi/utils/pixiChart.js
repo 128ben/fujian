@@ -487,12 +487,48 @@ export class PixiChart {
     });
   }
   
+  // 验证并调整标记点位置
+  validateAndAdjustMarkers() {
+    if (this.markers.length === 0 || this.data.length === 0) return;
+    
+    let adjustedCount = 0;
+    
+    this.markers.forEach(marker => {
+      // 检查标记点的时间戳是否在当前数据范围内
+      const dataTimestamps = this.data.map(d => d.timestamp);
+      const minTimestamp = Math.min(...dataTimestamps);
+      const maxTimestamp = Math.max(...dataTimestamps);
+      
+      // 如果标记点时间戳不在数据范围内，尝试调整
+      if (marker.timestamp < minTimestamp || marker.timestamp > maxTimestamp) {
+        const bestDataPoint = this.findBestMarkerPosition(marker.originalTimestamp || marker.timestamp, marker.originalPrice || marker.price);
+        
+        if (bestDataPoint) {
+          console.log(`调整标记点位置: ID=${marker.id}, 从 ${new Date(marker.timestamp).toLocaleTimeString()} 调整到 ${new Date(bestDataPoint.timestamp).toLocaleTimeString()}`);
+          
+          marker.timestamp = bestDataPoint.timestamp;
+          marker.price = bestDataPoint.price;
+          adjustedCount++;
+        }
+      }
+    });
+    
+    if (adjustedCount > 0) {
+      console.log(`调整了 ${adjustedCount} 个标记点的位置`);
+      this.drawMarkers(); // 重新绘制标记点
+    }
+  }
+
+  // 重写addData方法，在添加数据后验证标记点
   addData(newData) {
     const previousDataLength = this.data.length;
     this.data.push(newData);
     
     // 先更新价格范围，确保后续的坐标计算正确
     this.updatePriceRange();
+    
+    // 验证并调整标记点位置
+    this.validateAndAdjustMarkers();
     
     // 如果这不是第一个数据点且动画开启，启动绘制动画
     if (previousDataLength > 0 && this.options.animationEnabled) {
@@ -528,6 +564,22 @@ export class PixiChart {
     // 保持数据在合理范围内
     const cutoffTime = Date.now() - this.timeRange * 2;
     this.data = this.data.filter(d => d.timestamp > cutoffTime);
+    
+    // 清理过期的标记点
+    this.cleanupExpiredMarkers();
+  }
+
+  // 清理过期的标记点
+  cleanupExpiredMarkers() {
+    const cutoffTime = Date.now() - this.timeRange * 3; // 给标记点更长的保留时间
+    const originalCount = this.markers.length;
+    
+    this.markers = this.markers.filter(marker => marker.timestamp > cutoffTime);
+    
+    if (this.markers.length < originalCount) {
+      console.log(`清理了 ${originalCount - this.markers.length} 个过期标记点`);
+      this.drawMarkers();
+    }
   }
   
   // 更新最新价格线位置
@@ -857,23 +909,99 @@ export class PixiChart {
     }
   }
 
+  // 查找最佳标记点位置的方法
+  findBestMarkerPosition(targetTimestamp, targetPrice, timeWindow = 5000) {
+    if (this.data.length === 0) return null;
+    
+    // 在时间窗口内查找候选点
+    const candidates = this.data.filter(dataPoint => {
+      const timeDiff = Math.abs(dataPoint.timestamp - targetTimestamp);
+      return timeDiff <= timeWindow;
+    });
+    
+    // 如果时间窗口内没有数据点，扩大搜索范围
+    if (candidates.length === 0) {
+      console.log('时间窗口内无数据点，使用最接近的数据点');
+      return this.data.reduce((closest, current) => {
+        const closestDiff = Math.abs(closest.timestamp - targetTimestamp);
+        const currentDiff = Math.abs(current.timestamp - targetTimestamp);
+        return currentDiff < closestDiff ? current : closest;
+      });
+    }
+    
+    // 在候选点中找到最佳匹配
+    let bestMatch = candidates[0];
+    let bestScore = Infinity;
+    
+    for (const candidate of candidates) {
+      // 计算时间差分（权重较高）
+      const timeDiff = Math.abs(candidate.timestamp - targetTimestamp);
+      const timeScore = timeDiff / 1000; // 转换为秒
+      
+      // 计算价格差分（权重较低）
+      const priceDiff = Math.abs(candidate.price - targetPrice);
+      const priceScore = priceDiff * 0.1; // 降低价格权重
+      
+      // 综合评分：时间差更重要
+      const totalScore = timeScore * 0.8 + priceScore * 0.2;
+      
+      if (totalScore < bestScore) {
+        bestScore = totalScore;
+        bestMatch = candidate;
+      }
+    }
+    
+    return bestMatch;
+  }
+
   // 添加标记点方法
   addMarker(markerData) {
+    // 查找最接近指定时间戳的实际数据点
+    const targetTimestamp = markerData.timestamp || Date.now();
+    const targetPrice = markerData.price || 0;
+    
+    // 如果没有数据，直接返回
+    if (this.data.length === 0) {
+      console.warn('没有折线图数据，无法添加标记点');
+      return null;
+    }
+    
+    // 使用智能查找方法找到最佳位置
+    const bestDataPoint = this.findBestMarkerPosition(targetTimestamp, targetPrice);
+    
+    if (!bestDataPoint) {
+      console.warn('无法找到合适的数据点位置');
+      return null;
+    }
+    
+    // 使用实际数据点的时间戳和价格创建标记点
     const marker = {
       id: markerData.id || Date.now() + Math.random(),
-      timestamp: markerData.timestamp || Date.now(),
-      price: markerData.price || 0,
+      timestamp: bestDataPoint.timestamp, // 使用实际数据点的时间戳
+      price: bestDataPoint.price, // 使用实际数据点的价格
       type: markerData.type || 'buy', // 'buy' 或 'sell'
       color: markerData.color || (markerData.type === 'buy' ? 0x00ff00 : 0xff0000), // 绿色买入，红色卖出
-      size: markerData.size || 6,
+      size: markerData.size || 8, // 稍微增大标记点以便更清晰
       label: markerData.label || '',
-      amount: markerData.amount || 0
+      amount: markerData.amount || 0,
+      originalTimestamp: targetTimestamp, // 保存原始时间戳用于调试
+      originalPrice: targetPrice, // 保存原始价格用于调试
+      timeDiff: Math.abs(bestDataPoint.timestamp - targetTimestamp) // 保存时间差用于调试
     };
     
     this.markers.push(marker);
     this.drawMarkers();
     
-    console.log('添加标记点:', marker);
+    console.log('添加标记点到折线图:', {
+      原始时间: new Date(targetTimestamp).toLocaleTimeString(),
+      实际时间: new Date(bestDataPoint.timestamp).toLocaleTimeString(),
+      时间差: marker.timeDiff + 'ms',
+      原始价格: targetPrice.toFixed(2),
+      实际价格: bestDataPoint.price.toFixed(2),
+      标记点类型: marker.type,
+      标记点ID: marker.id
+    });
+    
     return marker.id;
   }
 
@@ -909,8 +1037,25 @@ export class PixiChart {
       
       // 检查标记点是否在可视范围内（使用与折线相同的可见性检查）
       if (this.isPointVisible(x, y)) {
-        // 绘制标记点圆圈
-        this.markerGraphics.beginFill(marker.color);
+        // 验证标记点是否真的在折线上
+        const isOnLine = this.isPointOnLine(x, y, marker.timestamp, marker.price);
+        
+        if (!isOnLine) {
+          console.warn(`标记点 ${marker.id} 可能不在折线上`, {
+            计算坐标: { x, y },
+            时间戳: marker.timestamp,
+            价格: marker.price,
+            时间: new Date(marker.timestamp).toLocaleTimeString()
+          });
+        }
+        
+        // 绘制标记点阴影（增强视觉效果）
+        this.markerGraphics.beginFill(0x000000, 0.3);
+        this.markerGraphics.drawCircle(x + 2, y + 2, marker.size + 1);
+        this.markerGraphics.endFill();
+        
+        // 绘制标记点主体
+        this.markerGraphics.beginFill(marker.color, 0.9);
         this.markerGraphics.drawCircle(x, y, marker.size);
         this.markerGraphics.endFill();
         
@@ -919,6 +1064,25 @@ export class PixiChart {
         this.markerGraphics.drawCircle(x, y, marker.size);
         this.markerGraphics.lineStyle(0); // 重置线条样式
         
+        // 绘制内部指示器（买涨/买跌）
+        if (marker.type === 'buy') {
+          // 买涨：向上箭头
+          this.markerGraphics.beginFill(0xffffff, 0.8);
+          this.markerGraphics.moveTo(x, y - marker.size * 0.4);
+          this.markerGraphics.lineTo(x - marker.size * 0.3, y + marker.size * 0.2);
+          this.markerGraphics.lineTo(x + marker.size * 0.3, y + marker.size * 0.2);
+          this.markerGraphics.lineTo(x, y - marker.size * 0.4);
+          this.markerGraphics.endFill();
+        } else {
+          // 买跌：向下箭头
+          this.markerGraphics.beginFill(0xffffff, 0.8);
+          this.markerGraphics.moveTo(x, y + marker.size * 0.4);
+          this.markerGraphics.lineTo(x - marker.size * 0.3, y - marker.size * 0.2);
+          this.markerGraphics.lineTo(x + marker.size * 0.3, y - marker.size * 0.2);
+          this.markerGraphics.lineTo(x, y + marker.size * 0.4);
+          this.markerGraphics.endFill();
+        }
+        
         // 如果有标签，绘制标签
         if (marker.label) {
           // 这里可以添加文本标签的绘制逻辑
@@ -926,6 +1090,32 @@ export class PixiChart {
         }
       }
     });
+  }
+
+  // 验证点是否在折线上（或接近折线）
+  isPointOnLine(x, y, timestamp, price) {
+    // 如果没有足够的数据点，无法验证
+    if (this.data.length < 2) return true;
+    
+    // 查找最接近的数据点
+    let closestDataPoint = null;
+    let minDistance = Infinity;
+    
+    for (const dataPoint of this.data) {
+      const dataX = this.timeToX(dataPoint.timestamp, Date.now(), this.options.width);
+      const dataY = this.priceToY(dataPoint.price);
+      
+      const distance = Math.sqrt(Math.pow(x - dataX, 2) + Math.pow(y - dataY, 2));
+      
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestDataPoint = dataPoint;
+      }
+    }
+    
+    // 如果最近的数据点距离超过阈值，认为不在折线上
+    const threshold = 15; // 像素阈值
+    return minDistance <= threshold;
   }
 
   // 清除所有标记点

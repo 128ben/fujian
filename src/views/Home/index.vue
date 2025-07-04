@@ -430,6 +430,9 @@ watch(
     // 清理图表数据缓冲区
     clearChartDataBuffer();
     
+    // 保存当前的标记点数据（如果需要在切换后恢复）
+    const currentMarkers = [...markerPoints.value];
+    
     // 清除标记点
     markerPoints.value = [];
     
@@ -438,6 +441,12 @@ watch(
       console.log('重置PriceChart组件');
       priceChartRef.value.resetChart();
       priceChartRef.value.clearMarkers();
+    }
+    
+    // 如果有活跃的订单，在数据源切换后可能需要重新添加标记点
+    // 这里可以根据业务需求决定是否保留标记点
+    if (currentMarkers.length > 0) {
+      console.log(`数据源切换，清理了 ${currentMarkers.length} 个标记点`);
     }
     
     console.log(`发送新的WebSocket订阅请求: ${newVal}`);
@@ -969,30 +978,43 @@ function placeOrderFun(buyType) { //买入
       message.success('买入成功');
       userStore.setUserInfo(res.data.balance, 'balance');
       
-      // 延迟1秒添加标记点，与折线渲染延迟保持同步
-      setTimeout(() => {
-        // 添加标记点到图表
-        const markerData = {
-          id: res.data.order.id,
-          timestamp: from.strikeTime,
-          price: from.buyAmount,
-          type: buyType === 1 ? 'buy' : 'sell',
-          color: buyType === 1 ? 0x00ff00 : 0xff0000, // 绿色买涨，红色买跌
-          size: 8,
-          label: buyType === 1 ? 'Buy Up' : 'Buy Down',
-          amount: from.amount
-        };
-        
-        // 添加到标记点数组
-        markerPoints.value.push(markerData);
-        
-        // 如果有PriceChart组件，直接添加标记点
-        if (priceChartRef.value) {
-          priceChartRef.value.addMarker(markerData);
-        }
-        
-        console.log(`延迟1秒后添加标记点: ${buyType === 1 ? '买涨' : '买跌'}, 时间戳: ${from.strikeTime}, 价格: ${from.buyAmount}`);
-      }, 1000); // 延迟1秒，与PriceChart的renderDelay保持一致
+      // 获取下单时的实际价格数据
+      const currentRealTimePrice = realTimeData.value.length > 0 ? 
+        realTimeData.value[realTimeData.value.length - 1].y : from.buyAmount;
+      const currentTimestamp = realTimeData.value.length > 0 ? 
+        realTimeData.value[realTimeData.value.length - 1].label : from.strikeTime;
+      
+      console.log('下单成功，准备添加标记点:', {
+        订单ID: res.data.order.id,
+        下单类型: buyType === 1 ? '买涨' : '买跌',
+        下单时间: new Date(from.strikeTime).toLocaleTimeString(),
+        实时价格: currentRealTimePrice,
+        实时时间: new Date(currentTimestamp).toLocaleTimeString(),
+        价格数据长度: realTimeData.value.length
+      });
+      
+      // 立即添加标记点，使用最新的实时数据
+      const markerData = {
+        id: res.data.order.id,
+        timestamp: currentTimestamp, // 使用实时数据的时间戳
+        price: currentRealTimePrice, // 使用实时数据的价格
+        type: buyType === 1 ? 'buy' : 'sell',
+        color: buyType === 1 ? 0x00ff00 : 0xff0000, // 绿色买涨，红色买跌
+        size: 10, // 增大标记点大小以便更清晰
+        label: buyType === 1 ? 'Buy Up' : 'Buy Down',
+        amount: from.amount
+      };
+      
+      // 添加到标记点数组
+      markerPoints.value.push(markerData);
+      
+      // 如果有PriceChart组件，立即添加标记点
+      if (priceChartRef.value) {
+        const markerId = priceChartRef.value.addMarker(markerData);
+        console.log('标记点已添加到图表，ID:', markerId);
+      } else {
+        console.warn('PriceChart组件不可用，标记点将在组件可用时添加');
+      }
       
       // setTimeout(() => {
       addBuySell(res.data, from.expirationTime)
