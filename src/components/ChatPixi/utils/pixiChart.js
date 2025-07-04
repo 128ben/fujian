@@ -43,6 +43,7 @@ export class PixiChart {
     // 最新价格线相关
     this.latestPriceLineGraphics = null;
     this.leftPriceLabel = null;
+    this.futureTimeLineGraphics = null;
     
     this.timeRange = 60000; // 60秒时间范围
     this.priceRange = { min: 95, max: 105 }; // 初始价格范围
@@ -97,11 +98,13 @@ export class PixiChart {
     this.lineGraphics = new PIXI.Graphics(); // 统一的线段绘制对象
     this.latestPriceLineGraphics = new PIXI.Graphics(); // 最新价格线绘制对象
     this.pulseGraphics = new PIXI.Graphics();
-    
+    this.futureTimeLineGraphics = new PIXI.Graphics();
+
     this.gridContainer.addChild(this.gridGraphics);
     this.chartContainer.addChild(this.lineGraphics);
     this.latestPriceLineContainer.addChild(this.latestPriceLineGraphics);
     this.pulseContainer.addChild(this.pulseGraphics);
+    this.gridContainer.addChild(this.futureTimeLineGraphics);
     
     // 创建并添加价格标签
     const labelStyle = {
@@ -236,9 +239,10 @@ export class PixiChart {
     // 绘制垂直网格线（时间轴）- 使用与数据相同的坐标转换逻辑
     const numTimeLines = Math.ceil(width / timeGridSpacing) + 4; // 增加网格线数量确保覆盖
     
-    // 计算当前可见的时间范围
-    const visibleTimeStart = currentTime - this.timeRange / this.viewState.scaleX;
-    const visibleTimeEnd = currentTime;
+    // 计算当前可见的时间范围，以覆盖整个图表宽度
+    const visibleTimeRange = this.timeRange / this.viewState.scaleX;
+    const visibleTimeStart = currentTime - visibleTimeRange * 0.75; // 75% of time is in the past
+    const visibleTimeEnd = currentTime + visibleTimeRange * 0.25;   // 25% of time is in the future
     
     // 根据时间间隔生成网格线
     const startGridTime = Math.floor(visibleTimeStart / timeInterval) * timeInterval;
@@ -574,6 +578,8 @@ export class PixiChart {
     if (this.data.length > 0) {
       this.drawLatestPriceLine();
     }
+
+    this.drawFutureTimeLine();
   }
   
   resetView() {
@@ -605,6 +611,7 @@ export class PixiChart {
     this.lineGraphics.clear();
     this.latestPriceLineGraphics.clear();
     this.pulseGraphics.clear();
+    this.futureTimeLineGraphics.clear();
     
     // 隐藏价格标签
     if (this.leftPriceLabel) {
@@ -795,11 +802,26 @@ export class PixiChart {
   
   // 统一的时间到X坐标转换方法
   timeToX(timestamp, currentTime, chartWidth) {
-    const latestX = chartWidth;
+    const latestX = chartWidth * 0.75;
     const timeDiff = currentTime - timestamp;
     const baseX = latestX - (timeDiff / this.timeRange) * chartWidth;
     
     // 应用视图变换：先缩放再偏移
     return baseX * this.viewState.scaleX + this.viewState.offsetX;
+  }
+
+  drawFutureTimeLine() {
+    this.futureTimeLineGraphics.clear();
+
+    const width = this.options.width;
+    const height = this.options.height;
+    const currentTime = Date.now();
+
+    const futureTimestamp = currentTime + 5000;
+    const futureX = this.timeToX(futureTimestamp, currentTime, width);
+
+    this.futureTimeLineGraphics.lineStyle(2, 0xFFFF00, 0.8); // Yellow line
+    this.futureTimeLineGraphics.moveTo(futureX, 0);
+    this.futureTimeLineGraphics.lineTo(futureX, height);
   }
 } 
