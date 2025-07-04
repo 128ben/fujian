@@ -109,6 +109,11 @@ const props = defineProps({
   dataSourceId: {
     type: String,
     default: 'default'
+  },
+  // 标记点数据
+  markerPoints: {
+    type: Array,
+    default: () => []
   }
 });
 
@@ -232,6 +237,18 @@ watch(
     }
   },
   { immediate: false }
+);
+
+// 监听标记点数据变化
+watch(
+  () => props.markerPoints,
+  (newMarkers) => {
+    if (pixiChart && newMarkers && newMarkers.length > 0) {
+      console.log('更新标记点:', newMarkers);
+      pixiChart.updateMarkers(newMarkers);
+    }
+  },
+  { deep: true, immediate: true }
 );
 
 // 监听useExternalData变化，处理数据源模式切换
@@ -515,6 +532,24 @@ defineExpose({
     if (pixiChart) {
       pixiChart.drawChart();
       pixiChart.drawGrid();
+    }
+  },
+  // 添加标记点方法
+  addMarker: (markerData) => {
+    if (pixiChart) {
+      pixiChart.addMarker(markerData);
+    }
+  },
+  // 移除指定标记点
+  removeMarker: (markerId) => {
+    if (pixiChart) {
+      pixiChart.removeMarker(markerId);
+    }
+  },
+  // 清除所有标记点
+  clearMarkers: () => {
+    if (pixiChart) {
+      pixiChart.clearMarkers();
     }
   }
 });

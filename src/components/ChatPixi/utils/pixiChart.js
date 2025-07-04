@@ -53,6 +53,10 @@ export class PixiChart {
     this.lastGridUpdate = 0;
     this.gridUpdateInterval = 100; // 网格更新间隔100ms
     
+    // 标记点管理
+    this.markers = []; // 存储标记点数据
+    this.markerGraphics = new PIXI.Graphics(); // 标记点绘制对象
+    
     this.init();
   }
   
@@ -84,11 +88,13 @@ export class PixiChart {
     this.textContainer = new PIXI.Container();
     this.pulseContainer = new PIXI.Container();
     this.priceLabelsContainer = new PIXI.Container();
+    this.markersContainer = new PIXI.Container(); // 标记点容器
     
     // 添加到stage，顺序很重要
     this.app.stage.addChild(this.gridContainer);
     this.app.stage.addChild(this.chartContainer);
     this.app.stage.addChild(this.latestPriceLineContainer); // 最新价格线在图表之上
+    this.app.stage.addChild(this.markersContainer); // 标记点在图表之上
     this.app.stage.addChild(this.pulseContainer);
     this.app.stage.addChild(this.textContainer);
     this.app.stage.addChild(this.priceLabelsContainer);
@@ -103,6 +109,7 @@ export class PixiChart {
     this.gridContainer.addChild(this.gridGraphics);
     this.chartContainer.addChild(this.lineGraphics);
     this.latestPriceLineContainer.addChild(this.latestPriceLineGraphics);
+    this.markersContainer.addChild(this.markerGraphics); // 添加标记点绘制对象
     this.pulseContainer.addChild(this.pulseGraphics);
     this.gridContainer.addChild(this.futureTimeLineGraphics);
     
@@ -197,6 +204,10 @@ export class PixiChart {
     // 最新价格线容器也保持原始缩放，跟随图表数据
     this.latestPriceLineContainer.position.set(0, 0);
     this.latestPriceLineContainer.scale.set(1, 1);
+    
+    // 标记点容器也保持原始缩放，跟随图表数据
+    this.markersContainer.position.set(0, 0);
+    this.markersContainer.scale.set(1, 1);
     
     // 脉冲容器也保持原始缩放，跟随图表数据
     this.pulseContainer.position.set(0, 0);
@@ -579,6 +590,11 @@ export class PixiChart {
       this.drawLatestPriceLine();
     }
 
+    // 更新标记点
+    if (this.markers.length > 0) {
+      this.drawMarkers();
+    }
+
     this.drawFutureTimeLine();
   }
   
@@ -612,6 +628,9 @@ export class PixiChart {
     this.latestPriceLineGraphics.clear();
     this.pulseGraphics.clear();
     this.futureTimeLineGraphics.clear();
+    
+    // 清空标记点
+    this.clearMarkers();
     
     // 隐藏价格标签
     if (this.leftPriceLabel) {
@@ -802,6 +821,7 @@ export class PixiChart {
   
   // 统一的时间到X坐标转换方法
   timeToX(timestamp, currentTime, chartWidth) {
+    // 最新时间在四分之三处
     const latestX = chartWidth * 0.75;
     const timeDiff = currentTime - timestamp;
     const baseX = latestX - (timeDiff / this.timeRange) * chartWidth;
@@ -810,18 +830,132 @@ export class PixiChart {
     return baseX * this.viewState.scaleX + this.viewState.offsetX;
   }
 
+  // 绘制未来时间线
   drawFutureTimeLine() {
+    if (!this.futureTimeLineGraphics) return;
+    
     this.futureTimeLineGraphics.clear();
-
-    const width = this.options.width;
-    const height = this.options.height;
+    
     const currentTime = Date.now();
+    const chartWidth = this.options.width;
+    const chartHeight = this.options.height;
+    
+    // 计算15秒之后的时间戳
+    const futureTime = currentTime + 15000; // 15秒 = 15000毫秒
+    
+    // 使用与折线相同的坐标转换方法计算X坐标
+    const futureX = this.timeToX(futureTime, currentTime, chartWidth);
+    
+    // 检查时间线是否在可视范围内
+    if (futureX >= -50 && futureX <= chartWidth + 50) {
+      // 绘制黄色的未来时间线
+      this.futureTimeLineGraphics.lineStyle(2, 0xFFD700, 0.8); // 黄色，透明度0.8，线宽2
+      this.futureTimeLineGraphics.moveTo(futureX, 0);
+      this.futureTimeLineGraphics.lineTo(futureX, chartHeight);
+      
+      console.log(`绘制未来时间线: 当前时间=${new Date(currentTime).toLocaleTimeString()}, 未来时间=${new Date(futureTime).toLocaleTimeString()}, X坐标=${futureX.toFixed(2)}`);
+    }
+  }
 
-    const futureTimestamp = currentTime + 5000;
-    const futureX = this.timeToX(futureTimestamp, currentTime, width);
+  // 添加标记点方法
+  addMarker(markerData) {
+    const marker = {
+      id: markerData.id || Date.now() + Math.random(),
+      timestamp: markerData.timestamp || Date.now(),
+      price: markerData.price || 0,
+      type: markerData.type || 'buy', // 'buy' 或 'sell'
+      color: markerData.color || (markerData.type === 'buy' ? 0x00ff00 : 0xff0000), // 绿色买入，红色卖出
+      size: markerData.size || 6,
+      label: markerData.label || '',
+      amount: markerData.amount || 0
+    };
+    
+    this.markers.push(marker);
+    this.drawMarkers();
+    
+    console.log('添加标记点:', marker);
+    return marker.id;
+  }
 
-    this.futureTimeLineGraphics.lineStyle(2, 0xFFFF00, 0.8); // Yellow line
-    this.futureTimeLineGraphics.moveTo(futureX, 0);
-    this.futureTimeLineGraphics.lineTo(futureX, height);
+  // 更新标记点
+  updateMarkers(markersData) {
+    this.markers = markersData.map(markerData => ({
+      id: markerData.id || Date.now() + Math.random(),
+      timestamp: markerData.timestamp || Date.now(),
+      price: markerData.price || 0,
+      type: markerData.type || 'buy',
+      color: markerData.color || (markerData.type === 'buy' ? 0x00ff00 : 0xff0000),
+      size: markerData.size || 6,
+      label: markerData.label || '',
+      amount: markerData.amount || 0
+    }));
+    
+    this.drawMarkers();
+  }
+
+  // 绘制所有标记点
+  drawMarkers() {
+    if (!this.markerGraphics) return;
+    
+    this.markerGraphics.clear();
+    
+    const currentTime = Date.now();
+    const chartWidth = this.options.width;
+    
+    this.markers.forEach(marker => {
+      // 使用与折线相同的坐标转换方法
+      const x = this.timeToX(marker.timestamp, currentTime, chartWidth);
+      const y = this.priceToY(marker.price);
+      
+      // 检查标记点是否在可视范围内（使用与折线相同的可见性检查）
+      if (this.isPointVisible(x, y)) {
+        // 绘制标记点圆圈
+        this.markerGraphics.beginFill(marker.color);
+        this.markerGraphics.drawCircle(x, y, marker.size);
+        this.markerGraphics.endFill();
+        
+        // 绘制白色边框
+        this.markerGraphics.lineStyle(2, 0xffffff, 1);
+        this.markerGraphics.drawCircle(x, y, marker.size);
+        this.markerGraphics.lineStyle(0); // 重置线条样式
+        
+        // 如果有标签，绘制标签
+        if (marker.label) {
+          // 这里可以添加文本标签的绘制逻辑
+          // 由于PIXI.Text需要在容器中管理，这里先留空
+        }
+      }
+    });
+  }
+
+  // 清除所有标记点
+  clearMarkers() {
+    this.markers = [];
+    if (this.markerGraphics) {
+      this.markerGraphics.clear();
+    }
+    console.log('清除所有标记点');
+  }
+
+  // 移除指定标记点
+  removeMarker(markerId) {
+    this.markers = this.markers.filter(marker => marker.id !== markerId);
+    this.drawMarkers();
+    console.log('移除标记点:', markerId);
+  }
+
+  // 获取指定位置的标记点
+  getMarkerAt(x, y, tolerance = 10) {
+    const currentTime = Date.now();
+    const chartWidth = this.options.width;
+    
+    return this.markers.find(marker => {
+      // 使用与绘制标记点相同的坐标转换方法
+      const markerX = this.timeToX(marker.timestamp, currentTime, chartWidth);
+      const markerY = this.priceToY(marker.price);
+      
+      const distance = Math.sqrt(Math.pow(x - markerX, 2) + Math.pow(y - markerY, 2));
+      return distance <= tolerance;
+    });
   }
 } 

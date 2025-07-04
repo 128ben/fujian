@@ -118,6 +118,7 @@
             :useExternalData="true"
             :renderDelay="1000"
             :dataSourceId="placeOrderForm.type"
+            :markerPoints="markerPoints"
             ref="priceChartRef"
           />
       </div>
@@ -390,6 +391,9 @@ const priceChartRef = ref(null);
 const chartRealTimeData = ref([]);
 const chartDataBuffer = ref([]); // 数据缓冲区，用于批量传递给图表组件
 
+// 标记点数据
+const markerPoints = ref([]);
+
 // 首页数据
 const currencyList = ref([]);
 const placeOrderForm = ref({
@@ -426,10 +430,14 @@ watch(
     // 清理图表数据缓冲区
     clearChartDataBuffer();
     
+    // 清除标记点
+    markerPoints.value = [];
+    
     // 重置图表组件
     if (priceChartRef.value) {
       console.log('重置PriceChart组件');
       priceChartRef.value.resetChart();
+      priceChartRef.value.clearMarkers();
     }
     
     console.log(`发送新的WebSocket订阅请求: ${newVal}`);
@@ -960,6 +968,32 @@ function placeOrderFun(buyType) { //买入
       message.destroy()
       message.success('买入成功');
       userStore.setUserInfo(res.data.balance, 'balance');
+      
+      // 延迟1秒添加标记点，与折线渲染延迟保持同步
+      setTimeout(() => {
+        // 添加标记点到图表
+        const markerData = {
+          id: res.data.order.id,
+          timestamp: from.strikeTime,
+          price: from.buyAmount,
+          type: buyType === 1 ? 'buy' : 'sell',
+          color: buyType === 1 ? 0x00ff00 : 0xff0000, // 绿色买涨，红色买跌
+          size: 8,
+          label: buyType === 1 ? 'Buy Up' : 'Buy Down',
+          amount: from.amount
+        };
+        
+        // 添加到标记点数组
+        markerPoints.value.push(markerData);
+        
+        // 如果有PriceChart组件，直接添加标记点
+        if (priceChartRef.value) {
+          priceChartRef.value.addMarker(markerData);
+        }
+        
+        console.log(`延迟1秒后添加标记点: ${buyType === 1 ? '买涨' : '买跌'}, 时间戳: ${from.strikeTime}, 价格: ${from.buyAmount}`);
+      }, 1000); // 延迟1秒，与PriceChart的renderDelay保持一致
+      
       // setTimeout(() => {
       addBuySell(res.data, from.expirationTime)
       // }, 500);
@@ -995,6 +1029,18 @@ function deleteBuySell(id) {
     if (v.order.id == id) {
       v.markPoint && lineChart.value.destroyElementHandler(v.markPoint.id)
       buySells.value.splice(i, 1);
+      
+      // 同时移除对应的标记点
+      const markerIndex = markerPoints.value.findIndex(marker => marker.id === id);
+      if (markerIndex !== -1) {
+        markerPoints.value.splice(markerIndex, 1);
+      }
+      
+      // 如果有PriceChart组件，移除标记点
+      if (priceChartRef.value) {
+        priceChartRef.value.removeMarker(id);
+      }
+      
       break;
     }
   }
