@@ -41,9 +41,8 @@ export class PixiChart {
     };
     
     // 最新价格线相关
-    this.latestPrice = null;
     this.latestPriceLineGraphics = null;
-    this.latestPriceLabel = null;
+    this.leftPriceLabel = null;
     
     this.timeRange = 60000; // 60秒时间范围
     this.priceRange = { min: 95, max: 105 }; // 初始价格范围
@@ -83,6 +82,7 @@ export class PixiChart {
     this.latestPriceLineContainer = new PIXI.Container(); // 最新价格线容器
     this.textContainer = new PIXI.Container();
     this.pulseContainer = new PIXI.Container();
+    this.priceLabelsContainer = new PIXI.Container();
     
     // 添加到stage，顺序很重要
     this.app.stage.addChild(this.gridContainer);
@@ -90,6 +90,7 @@ export class PixiChart {
     this.app.stage.addChild(this.latestPriceLineContainer); // 最新价格线在图表之上
     this.app.stage.addChild(this.pulseContainer);
     this.app.stage.addChild(this.textContainer);
+    this.app.stage.addChild(this.priceLabelsContainer);
     
     // 创建图形对象 - 简化为单一线段对象
     this.gridGraphics = new PIXI.Graphics();
@@ -102,6 +103,18 @@ export class PixiChart {
     this.latestPriceLineContainer.addChild(this.latestPriceLineGraphics);
     this.pulseContainer.addChild(this.pulseGraphics);
     
+    // 创建并添加价格标签
+    const labelStyle = {
+      fontFamily: 'Arial',
+      fontSize: 12,
+      fill: 0xffffff,
+      fontWeight: 'bold'
+    };
+
+    this.leftPriceLabel = new PIXI.Text('', labelStyle);
+    this.leftPriceLabel.visible = false;
+    this.priceLabelsContainer.addChild(this.leftPriceLabel);
+
     // 脉冲动画相关
     this.pulseTime = 0;
     this.lastEndPoint = null;
@@ -511,14 +524,14 @@ export class PixiChart {
     };
     
     // 创建或更新价格标签
-    if (!this.latestPriceLabel) {
-      this.latestPriceLabel = new PIXI.Text('', {
+    if (!this.leftPriceLabel) {
+      this.leftPriceLabel = new PIXI.Text('', {
         fontFamily: 'Arial',
         fontSize: 12,
         fill: 0xffffff,
         fontWeight: 'bold'
       });
-      this.textContainer.addChild(this.latestPriceLabel);
+      this.priceLabelsContainer.addChild(this.leftPriceLabel);
     }
   }
   
@@ -594,8 +607,8 @@ export class PixiChart {
     this.pulseGraphics.clear();
     
     // 隐藏价格标签
-    if (this.latestPriceLabel) {
-      this.latestPriceLabel.visible = false;
+    if (this.leftPriceLabel) {
+      this.leftPriceLabel.visible = false;
     }
     
     // 重置动画状态
@@ -741,23 +754,21 @@ export class PixiChart {
     }
     
     // 绘制右侧价格标签背景
-    if (this.latestPriceLabel) {
-      // 先更新标签文本以获取正确的宽度
-      this.latestPriceLabel.text = `$${latestData.price.toFixed(2)}`;
+      const currentPriceText = `$${latestData.price.toFixed(2)}`;
       
-      const labelWidth = this.latestPriceLabel.width + 16;
-      const labelHeight = 20;
-      const labelX = width - labelWidth;
-      
-      // 使用与折线相同的颜色作为标签背景
+      // 更新左侧标签
+      this.leftPriceLabel.text = currentPriceText;
+      this.leftPriceLabel.visible = true;
+      const leftLabelWidth = this.leftPriceLabel.width + 16;
+      const leftLabelHeight = 20;
+      const leftLabelX = 0;
+
       this.latestPriceLineGraphics.beginFill(this.options.lineColor, 0.9);
-      this.latestPriceLineGraphics.drawRoundedRect(labelX, animatedY - labelHeight/2, labelWidth, labelHeight, 3);
+      this.latestPriceLineGraphics.drawRoundedRect(leftLabelX, animatedY - leftLabelHeight/2, leftLabelWidth, leftLabelHeight, 3);
       this.latestPriceLineGraphics.endFill();
-      
-      // 更新标签位置
-      this.latestPriceLabel.x = labelX + 8;
-      this.latestPriceLabel.y = animatedY - 8;
-    }
+
+      this.leftPriceLabel.x = leftLabelX + 8;
+      this.leftPriceLabel.y = animatedY - 8;
   }
   
   // 控制最新价格线显示/隐藏
@@ -766,12 +777,12 @@ export class PixiChart {
     
     if (!visible) {
       this.latestPriceLineGraphics.clear();
-      if (this.latestPriceLabel && this.latestPriceLabel.parent) {
-        this.latestPriceLabel.visible = false;
+      if (this.leftPriceLabel && this.leftPriceLabel.parent) {
+        this.leftPriceLabel.visible = false;
       }
     } else {
-      if (this.latestPriceLabel) {
-        this.latestPriceLabel.visible = true;
+      if (this.leftPriceLabel) {
+        this.leftPriceLabel.visible = true;
       }
       this.drawLatestPriceLine();
     }
