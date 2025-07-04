@@ -244,8 +244,7 @@ export class PixiChart {
         const timeText = this.formatTimeLabel(timestamp);
         
         // 根据缩放调整字体大小
-        const fontSize = Math.max(8, Math.min(16, 12 / Math.sqrt(this.viewState.scaleX)));
-        
+        const fontSize = 12;
         const text = new PIXI.Text(timeText, {
           fontFamily: 'Arial',
           fontSize: fontSize,
@@ -283,8 +282,7 @@ export class PixiChart {
         
         // 添加价格标签，根据缩放调整精度和字体大小
         const precision = this.viewState.scaleY > 2 ? 3 : 2;
-        const fontSize = Math.max(8, Math.min(16, 12 / Math.sqrt(this.viewState.scaleY)));
-        
+        const fontSize = 12;
         const priceText = new PIXI.Text(price.toFixed(precision), {
           fontFamily: 'Arial',
           fontSize: fontSize,
@@ -786,7 +784,7 @@ export class PixiChart {
   
   // 统一的时间到X坐标转换方法
   timeToX(timestamp, currentTime, chartWidth) {
-    const latestX = chartWidth * 0.75;
+    const latestX = chartWidth;
     const timeDiff = currentTime - timestamp;
     const baseX = latestX - (timeDiff / this.timeRange) * chartWidth;
     
