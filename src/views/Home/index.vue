@@ -1000,7 +1000,7 @@ function placeOrderFun(buyType) { //买入
         price: currentRealTimePrice, // 使用实时数据的价格
         type: buyType === 1 ? 'buy' : 'sell',
         color: buyType === 1 ? 0x00ff00 : 0xff0000, // 绿色买涨，红色买跌
-        size: 10, // 增大标记点大小以便更清晰
+        size: 4, // 调整为小点，4像素大小
         label: buyType === 1 ? 'Buy Up' : 'Buy Down',
         amount: from.amount
       };

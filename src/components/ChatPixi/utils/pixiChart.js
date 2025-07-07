@@ -235,6 +235,11 @@ export class PixiChart {
     this.drawGrid();
     this.drawChart();
     this.drawLatestPriceLine(); // 绘制最新价格线
+    
+    // 确保标记点也会重新绘制，与折线保持同步
+    if (this.markers.length > 0) {
+      this.drawMarkers();
+    }
   }
   
   drawGrid() {
@@ -1079,45 +1084,23 @@ export class PixiChart {
           });
         }
         
-        // 绘制标记点阴影（增强视觉效果）
-        this.markerGraphics.beginFill(0x000000, 0.3);
-        this.markerGraphics.drawCircle(x + 2, y + 2, marker.size + 1);
+        // 简化的标记点样式 - 只画一个小圆点
+        // 根据缩放级别调整标记点大小，确保在不同缩放下都清晰可见
+        const baseDotSize = marker.size || 4; // 基础大小
+        const scaleFactor = Math.max(0.5, Math.min(2, 1 / this.viewState.scaleX)); // 反向缩放因子，限制在0.5-2倍之间
+        const dotSize = baseDotSize * scaleFactor;
+        
+        // 绘制主体圆点，根据买涨买跌使用不同颜色
+        this.markerGraphics.beginFill(marker.color, 1);
+        this.markerGraphics.drawCircle(x, y, dotSize);
         this.markerGraphics.endFill();
         
-        // 绘制标记点主体
-        this.markerGraphics.beginFill(marker.color, 0.9);
-        this.markerGraphics.drawCircle(x, y, marker.size);
-        this.markerGraphics.endFill();
-        
-        // 绘制白色边框
-        this.markerGraphics.lineStyle(2, 0xffffff, 1);
-        this.markerGraphics.drawCircle(x, y, marker.size);
+        // 绘制白色边框，使其在图表上更突出
+        // 边框粗细也根据缩放调整
+        const borderWidth = Math.max(0.5, 1 * scaleFactor);
+        this.markerGraphics.lineStyle(borderWidth, 0xffffff, 0.8);
+        this.markerGraphics.drawCircle(x, y, dotSize);
         this.markerGraphics.lineStyle(0); // 重置线条样式
-        
-        // 绘制内部指示器（买涨/买跌）
-        if (marker.type === 'buy') {
-          // 买涨：向上箭头
-          this.markerGraphics.beginFill(0xffffff, 0.8);
-          this.markerGraphics.moveTo(x, y - marker.size * 0.4);
-          this.markerGraphics.lineTo(x - marker.size * 0.3, y + marker.size * 0.2);
-          this.markerGraphics.lineTo(x + marker.size * 0.3, y + marker.size * 0.2);
-          this.markerGraphics.lineTo(x, y - marker.size * 0.4);
-          this.markerGraphics.endFill();
-        } else {
-          // 买跌：向下箭头
-          this.markerGraphics.beginFill(0xffffff, 0.8);
-          this.markerGraphics.moveTo(x, y + marker.size * 0.4);
-          this.markerGraphics.lineTo(x - marker.size * 0.3, y - marker.size * 0.2);
-          this.markerGraphics.lineTo(x + marker.size * 0.3, y - marker.size * 0.2);
-          this.markerGraphics.lineTo(x, y + marker.size * 0.4);
-          this.markerGraphics.endFill();
-        }
-        
-        // 如果有标签，绘制标签
-        if (marker.label) {
-          // 这里可以添加文本标签的绘制逻辑
-          // 由于PIXI.Text需要在容器中管理，这里先留空
-        }
       }
     });
   }
