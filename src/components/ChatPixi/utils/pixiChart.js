@@ -17,6 +17,8 @@ export class PixiChart {
       animationEasing: options.animationEasing || 'easeOutCubic', // 缓动函数
       animationEnabled: options.animationEnabled || true,
       showLatestPriceLine: options.showLatestPriceLine !== false, // 默认显示最新价格线
+      showHistoricalData: options.showHistoricalData !== false, // 默认显示历史数据
+      historicalDataThreshold: options.historicalDataThreshold || 30000, // 历史数据时间阈值(30秒)
       ...options
     };
     
@@ -27,7 +29,8 @@ export class PixiChart {
       scaleX: 1,
       scaleY: 1,
       isDragging: false,
-      dragStart: { x: 0, y: 0 }
+      dragStart: { x: 0, y: 0 },
+      hasUserDraggedLeft: false // 新增：用户是否向左拖动过
     };
     
     // 动画状态管理
@@ -161,6 +164,14 @@ export class PixiChart {
       if (this.viewState.isDragging) {
         const deltaX = e.offsetX - this.viewState.dragStart.x;
         // const deltaY = e.offsetY - this.viewState.dragStart.y; // 注释掉y轴拖拽
+        
+        // 检测用户是否向左拖动
+        if (deltaX > 0 && !this.viewState.hasUserDraggedLeft) {
+          this.viewState.hasUserDraggedLeft = true;
+          console.log('用户首次向左拖动，开始显示历史数据');
+          // 立即重新绘制图表以显示历史数据
+          this.drawChart();
+        }
         
         this.viewState.offsetX += deltaX;
         // this.viewState.offsetY += deltaY; // 注释掉y轴偏移调整
@@ -342,11 +353,22 @@ export class PixiChart {
     const adjustedTimeRange = this.timeRange / this.viewState.scaleX;
     
     // 获取可见数据，考虑缩放和偏移
-    const visibleData = this.data.filter(point => {
+    let visibleData = this.data.filter(point => {
       const timeDiff = currentTime - point.timestamp;
       const timeOffset = -this.viewState.offsetX / this.viewState.scaleX / chartWidth * this.timeRange;
       return timeDiff >= timeOffset && timeDiff <= adjustedTimeRange + timeOffset;
     });
+    
+    // 如果用户还没有向左拖动，过滤掉历史数据
+    if (!this.viewState.hasUserDraggedLeft) {
+      const historicalThreshold = this.options.historicalDataThreshold;
+      visibleData = visibleData.filter(point => {
+        const timeDiff = currentTime - point.timestamp;
+        return timeDiff <= historicalThreshold;
+      });
+      
+      console.log(`历史数据过滤: 总数据点=${this.data.length}, 可见数据点=${visibleData.length}, 阈值=${historicalThreshold}ms`);
+    }
     
     if (visibleData.length === 0) return;
     
@@ -652,17 +674,20 @@ export class PixiChart {
     this.drawFutureTimeLine();
   }
   
+  // 重置视图状态
   resetView() {
     this.viewState.offsetX = 0;
     // this.viewState.offsetY = 0; // 不重置y轴偏移
     this.viewState.scaleX = 1;
     // this.viewState.scaleY = 1; // 不重置y轴缩放
+    this.viewState.hasUserDraggedLeft = false; // 重置拖动状态
     
     // 重置动画状态
     this.animationState.isAnimating = false;
     this.animationState.pendingAnimations = [];
     
     this.updateView();
+    console.log('视图已重置，历史数据将重新隐藏');
   }
   
   // 清空所有数据和视觉元素
@@ -676,6 +701,9 @@ export class PixiChart {
     
     // 重置价格范围
     this.priceRange = { min: 95, max: 105 };
+    
+    // 重置拖动状态
+    this.viewState.hasUserDraggedLeft = false;
     
     // 清空所有图形
     this.lineGraphics.clear();
@@ -699,7 +727,7 @@ export class PixiChart {
     // 重新绘制网格
     this.drawGrid();
     
-    console.log('PixiChart: 数据清空完成');
+    console.log('PixiChart: 数据清空完成，历史数据显示状态已重置');
   }
   
   resize(width, height) {
@@ -1149,5 +1177,39 @@ export class PixiChart {
       const distance = Math.sqrt(Math.pow(x - markerX, 2) + Math.pow(y - markerY, 2));
       return distance <= tolerance;
     });
+  }
+
+  // 手动启用历史数据显示
+  enableHistoricalData() {
+    if (!this.viewState.hasUserDraggedLeft) {
+      this.viewState.hasUserDraggedLeft = true;
+      console.log('手动启用历史数据显示');
+      this.drawChart();
+    }
+  }
+  
+  // 手动禁用历史数据显示
+  disableHistoricalData() {
+    if (this.viewState.hasUserDraggedLeft) {
+      this.viewState.hasUserDraggedLeft = false;
+      console.log('手动禁用历史数据显示');
+      this.drawChart();
+    }
+  }
+  
+  // 获取历史数据显示状态
+  isHistoricalDataEnabled() {
+    return this.viewState.hasUserDraggedLeft;
+  }
+  
+  // 设置历史数据时间阈值
+  setHistoricalDataThreshold(threshold) {
+    this.options.historicalDataThreshold = threshold;
+    console.log(`历史数据阈值设置为: ${threshold}ms`);
+    
+    // 如果历史数据未启用，重新绘制图表
+    if (!this.viewState.hasUserDraggedLeft) {
+      this.drawChart();
+    }
   }
 } 
