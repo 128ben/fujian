@@ -59,6 +59,8 @@ export class PixiChart {
     // 标记点管理
     this.markers = []; // 存储标记点数据
     this.markerGraphics = new PIXI.Graphics(); // 标记点绘制对象
+    this.markerLines = new Map(); // 存储每个标记点对应的竖线对象
+    this.markerLinesContainer = new PIXI.Container(); // 标记点竖线容器
     
     this.init();
   }
@@ -98,6 +100,7 @@ export class PixiChart {
     this.app.stage.addChild(this.chartContainer);
     this.app.stage.addChild(this.latestPriceLineContainer); // 最新价格线在图表之上
     this.app.stage.addChild(this.markersContainer); // 标记点在图表之上
+    this.app.stage.addChild(this.markerLinesContainer); // 标记点竖线容器
     this.app.stage.addChild(this.pulseContainer);
     this.app.stage.addChild(this.textContainer);
     this.app.stage.addChild(this.priceLabelsContainer);
@@ -603,10 +606,25 @@ export class PixiChart {
     const cutoffTime = Date.now() - this.timeRange * 3; // 给标记点更长的保留时间
     const originalCount = this.markers.length;
     
+    // 找出过期的标记点ID
+    const expiredMarkerIds = this.markers
+      .filter(marker => marker.timestamp <= cutoffTime)
+      .map(marker => marker.id);
+    
+    // 清理过期标记点对应的竖线
+    expiredMarkerIds.forEach(markerId => {
+      if (this.markerLines.has(markerId)) {
+        const lineGraphics = this.markerLines.get(markerId);
+        lineGraphics.destroy();
+        this.markerLines.delete(markerId);
+      }
+    });
+    
+    // 过滤掉过期的标记点
     this.markers = this.markers.filter(marker => marker.timestamp > cutoffTime);
     
     if (this.markers.length < originalCount) {
-      console.log(`清理了 ${originalCount - this.markers.length} 个过期标记点`);
+      console.log(`清理了 ${originalCount - this.markers.length} 个过期标记点和对应竖线`);
       this.drawMarkers();
     }
   }
@@ -718,6 +736,9 @@ export class PixiChart {
     
     // 清空标记点
     this.clearMarkers();
+    
+    // 清空标记点竖线容器
+    this.markerLinesContainer.removeChildren();
     
     // 隐藏价格标签
     if (this.leftPriceLabel) {
@@ -1061,14 +1082,66 @@ export class PixiChart {
     if (!this.markerGraphics) return;
     
     this.markerGraphics.clear();
+    this.markerLinesContainer.removeChildren(); // 清除旧的竖线
     
     const currentTime = Date.now();
     const chartWidth = this.options.width;
+    const chartHeight = this.options.height;
     
+    // 计算黄色时间轴的X坐标（15秒后的时间）
+    const futureTime = currentTime + 15000; // 15秒 = 15000毫秒
+    const futureTimeX = this.timeToX(futureTime, currentTime, chartWidth);
+    
+    // 先过滤掉与折线端点相遇的标记点
+    const originalMarkersCount = this.markers.length;
+    const markersToRemove = [];
+    
+    // 检查每个标记点是否与折线端点相遇
+    this.markers.forEach(marker => {
+      // 计算标记点时间15秒后的X坐标（竖线位置）
+      const markerFutureTime = marker.timestamp + 15000; // 标记点时间 + 15秒
+      const markerFutureX = this.timeToX(markerFutureTime, currentTime, chartWidth);
+      
+      // 计算折线端点位置
+      const endPointX = this.timeToX(currentTime, currentTime, chartWidth); // 当前时间对应的X坐标
+      
+      // 检查竖线是否与折线端点相遇（允许一定的误差范围）
+      const meetingThreshold = 10; // 像素阈值
+      const isMarkerLineMeetingEndPoint = Math.abs(markerFutureX - endPointX) <= meetingThreshold;
+      
+      // 如果竖线与折线端点相遇，标记为需要移除
+      if (isMarkerLineMeetingEndPoint) {
+        console.log(`标记点 ${marker.id} 的竖线与折线端点相遇，标记为移除`);
+        markersToRemove.push(marker.id);
+      }
+    });
+    
+    // 移除与折线端点相遇的标记点
+    if (markersToRemove.length > 0) {
+      markersToRemove.forEach(markerId => {
+        // 移除标记点
+        this.markers = this.markers.filter(marker => marker.id !== markerId);
+        
+        // 移除对应的竖线
+        if (this.markerLines.has(markerId)) {
+          const lineGraphics = this.markerLines.get(markerId);
+          lineGraphics.destroy();
+          this.markerLines.delete(markerId);
+        }
+      });
+      
+      console.log(`移除了 ${markersToRemove.length} 个与折线端点相遇的标记点，剩余 ${this.markers.length} 个标记点`);
+    }
+    
+    // 现在绘制剩余的标记点
     this.markers.forEach(marker => {
       // 使用与折线相同的坐标转换方法
       const x = this.timeToX(marker.timestamp, currentTime, chartWidth);
       const y = this.priceToY(marker.price);
+      
+      // 计算标记点时间15秒后的X坐标（竖线位置）
+      const markerFutureTime = marker.timestamp + 15000; // 标记点时间 + 15秒
+      const markerFutureX = this.timeToX(markerFutureTime, currentTime, chartWidth);
       
       // 检查标记点是否在可视范围内（使用与折线相同的可见性检查）
       if (this.isPointVisible(x, y)) {
@@ -1082,6 +1155,24 @@ export class PixiChart {
             价格: marker.price,
             时间: new Date(marker.timestamp).toLocaleTimeString()
           });
+        }
+        
+        // 检查黄色时间轴是否在可视范围内
+        const isTimeLineVisible = futureTimeX >= -50 && futureTimeX <= chartWidth + 50;
+        
+        // 如果黄色时间轴可见，绘制连接线
+        if (isTimeLineVisible) {
+          // 绘制从标记点到竖线位置的连接线
+          this.markerGraphics.lineStyle(1, marker.color, 0.6); // 使用标记点相同的颜色，透明度0.6
+          
+          // 检查竖线是否在可视范围内
+          if (markerFutureX >= -50 && markerFutureX <= chartWidth + 50) {
+            // 从标记点开始绘制横线到竖线位置
+            this.markerGraphics.moveTo(x, y);
+            this.markerGraphics.lineTo(markerFutureX, y); // 水平线到竖线位置
+            
+            console.log(`绘制标记点 ${marker.id} 的连接线: 从标记点(${x.toFixed(2)}, ${y.toFixed(2)}) 到竖线位置(${markerFutureX.toFixed(2)}, ${y.toFixed(2)})`);
+          }
         }
         
         // 简化的标记点样式 - 只画一个小圆点
@@ -1101,6 +1192,21 @@ export class PixiChart {
         this.markerGraphics.lineStyle(borderWidth, 0xffffff, 0.8);
         this.markerGraphics.drawCircle(x, y, dotSize);
         this.markerGraphics.lineStyle(0); // 重置线条样式
+
+        // 绘制标记点对应的竖线
+        const lineGraphics = new PIXI.Graphics();
+        lineGraphics.lineStyle(1, marker.color, 0.6); // 使用标记点相同的颜色，透明度0.6
+        
+        // 检查竖线是否在可视范围内
+        if (markerFutureX >= -50 && markerFutureX <= chartWidth + 50) {
+          lineGraphics.moveTo(markerFutureX, 0); // 从图表顶部开始
+          lineGraphics.lineTo(markerFutureX, chartHeight); // 到图表底部
+          
+          console.log(`绘制标记点 ${marker.id} 的竖线: 标记点时间=${new Date(marker.timestamp).toLocaleTimeString()}, 竖线时间=${new Date(markerFutureTime).toLocaleTimeString()}, X坐标=${markerFutureX.toFixed(2)}`);
+        }
+        
+        this.markerLinesContainer.addChild(lineGraphics);
+        this.markerLines.set(marker.id, lineGraphics);
       }
     });
   }
@@ -1134,6 +1240,8 @@ export class PixiChart {
   // 清除所有标记点
   clearMarkers() {
     this.markers = [];
+    this.markerLines.forEach(line => line.destroy());
+    this.markerLines.clear();
     if (this.markerGraphics) {
       this.markerGraphics.clear();
     }
@@ -1143,8 +1251,16 @@ export class PixiChart {
   // 移除指定标记点
   removeMarker(markerId) {
     this.markers = this.markers.filter(marker => marker.id !== markerId);
+    
+    // 移除对应的竖线
+    if (this.markerLines.has(markerId)) {
+      const lineGraphics = this.markerLines.get(markerId);
+      lineGraphics.destroy();
+      this.markerLines.delete(markerId);
+    }
+    
     this.drawMarkers();
-    console.log('移除标记点:', markerId);
+    console.log('移除标记点和对应竖线:', markerId);
   }
 
   // 获取指定位置的标记点
