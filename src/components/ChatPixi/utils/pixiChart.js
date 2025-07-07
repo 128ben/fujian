@@ -160,10 +160,10 @@ export class PixiChart {
     canvas.addEventListener('mousemove', (e) => {
       if (this.viewState.isDragging) {
         const deltaX = e.offsetX - this.viewState.dragStart.x;
-        const deltaY = e.offsetY - this.viewState.dragStart.y;
+        // const deltaY = e.offsetY - this.viewState.dragStart.y; // 注释掉y轴拖拽
         
         this.viewState.offsetX += deltaX;
-        this.viewState.offsetY += deltaY;
+        // this.viewState.offsetY += deltaY; // 注释掉y轴偏移调整
         
         this.viewState.dragStart = { x: e.offsetX, y: e.offsetY };
         this.updateView();
@@ -183,15 +183,16 @@ export class PixiChart {
     const oldScaleX = this.viewState.scaleX;
     const oldScaleY = this.viewState.scaleY;
     
+    // 只对x轴进行缩放，y轴保持不变
     this.viewState.scaleX = Math.max(0.1, Math.min(10, this.viewState.scaleX * factor));
-    this.viewState.scaleY = Math.max(0.1, Math.min(10, this.viewState.scaleY * factor));
+    // this.viewState.scaleY = Math.max(0.1, Math.min(10, this.viewState.scaleY * factor)); // 注释掉y轴缩放
     
     // 调整偏移以保持缩放中心
     const scaleFactorX = this.viewState.scaleX / oldScaleX;
-    const scaleFactorY = this.viewState.scaleY / oldScaleY;
+    // const scaleFactorY = this.viewState.scaleY / oldScaleY; // 注释掉y轴缩放因子
     
     this.viewState.offsetX = centerX - (centerX - this.viewState.offsetX) * scaleFactorX;
-    this.viewState.offsetY = centerY - (centerY - this.viewState.offsetY) * scaleFactorY;
+    // this.viewState.offsetY = centerY - (centerY - this.viewState.offsetY) * scaleFactorY; // 注释掉y轴偏移调整
     
     this.updateView();
   }
@@ -289,9 +290,9 @@ export class PixiChart {
     // 绘制水平网格线（价格轴）- 使用与数据相同的坐标转换逻辑
     const currentPriceRange = this.priceRange.max - this.priceRange.min;
     const basePriceStep = currentPriceRange / 8;
-    const adjustedPriceStep = Math.max(0.01, basePriceStep / this.viewState.scaleY); // 根据缩放调整价格步长
+    const adjustedPriceStep = Math.max(0.01, basePriceStep); // 移除y轴缩放影响，保持固定间距
     
-    // 计算可见的价格范围（考虑缩放和偏移）
+    // 计算可见的价格范围（不考虑y轴缩放和偏移）
     const visiblePriceMin = this.priceRange.min - currentPriceRange * 0.2;
     const visiblePriceMax = this.priceRange.max + currentPriceRange * 0.2;
     
@@ -308,8 +309,8 @@ export class PixiChart {
         this.gridGraphics.moveTo(0, y);
         this.gridGraphics.lineTo(width, y);
         
-        // 添加价格标签，根据缩放调整精度和字体大小
-        const precision = this.viewState.scaleY > 2 ? 3 : 2;
+        // 添加价格标签，使用固定精度
+        const precision = 2; // 固定精度，不受缩放影响
         const fontSize = 12;
         const priceText = new PIXI.Text(price.toFixed(precision), {
           fontFamily: 'Arial',
@@ -457,8 +458,9 @@ export class PixiChart {
     const chartHeight = this.options.height * 0.7; // 留出底部空间给时间标签
     const baseY = chartTop + chartHeight - (normalizedPrice * chartHeight);
     
-    // 应用视图变换：先缩放再偏移
-    return baseY * this.viewState.scaleY + this.viewState.offsetY;
+    // 不应用视图变换，只返回基础Y坐标（y轴不受缩放影响）
+    return baseY;
+    // return baseY * this.viewState.scaleY + this.viewState.offsetY; // 注释掉y轴变换
   }
   
   updatePriceRange() {
@@ -652,9 +654,9 @@ export class PixiChart {
   
   resetView() {
     this.viewState.offsetX = 0;
-    this.viewState.offsetY = 0;
+    // this.viewState.offsetY = 0; // 不重置y轴偏移
     this.viewState.scaleX = 1;
-    this.viewState.scaleY = 1;
+    // this.viewState.scaleY = 1; // 不重置y轴缩放
     
     // 重置动画状态
     this.animationState.isAnimating = false;
