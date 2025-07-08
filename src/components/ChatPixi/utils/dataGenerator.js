@@ -2,8 +2,8 @@ export class SimpleDataGenerator {
   constructor(options = {}) {
     this.config = {
       basePrice: options.basePrice || 100,
-      volatility: options.volatility || 0.02, // 2% 波动率
-      interval: options.interval || 1000, // 1秒间隔
+      volatility: options.volatility || 0.02,
+      interval: options.interval || 1000,
       ...options
     };
     
@@ -13,16 +13,14 @@ export class SimpleDataGenerator {
     this.intervalId = null;
     this.listeners = new Set();
     
-    // 事件回调
     this.onopen = null;
     this.onmessage = null;
     this.onclose = null;
     this.onerror = null;
   }
   
-  // 模拟WebSocket接口
   get readyState() {
-    return this.isRunning ? 1 : 0; // 1 = OPEN, 0 = CONNECTING/CLOSED
+    return this.isRunning ? 1 : 0;
   }
   
   start() {
@@ -30,7 +28,6 @@ export class SimpleDataGenerator {
     
     this.isRunning = true;
     
-    // 模拟连接延迟
     setTimeout(() => {
       if (this.onopen) {
         this.onopen({ type: 'open' });
@@ -42,10 +39,8 @@ export class SimpleDataGenerator {
   startDataGeneration() {
     if (!this.isRunning) return;
     
-    // 立即生成第一个数据点
     this.generateDataPoint();
     
-    // 设置定时器，每秒生成一个数据点
     this.intervalId = setInterval(() => {
       if (this.isRunning) {
         this.generateDataPoint();
@@ -54,12 +49,10 @@ export class SimpleDataGenerator {
   }
   
   generateDataPoint() {
-    // 生成价格波动
     const changePercent = (Math.random() - 0.5) * 2 * this.config.volatility;
     const priceChange = this.currentPrice * changePercent;
     this.currentPrice = Math.max(0.01, this.currentPrice + priceChange);
     
-    // 生成交易量
     const baseVolume = 1000;
     const volumeVariation = Math.random() * 2000;
     const volume = Math.floor(baseVolume + volumeVariation);
@@ -75,7 +68,6 @@ export class SimpleDataGenerator {
       sequence: ++this.dataCount
     };
     
-    // 通知监听器
     if (this.onmessage) {
       this.onmessage({
         data: JSON.stringify(data),
@@ -83,28 +75,24 @@ export class SimpleDataGenerator {
       });
     }
     
-    // 通知其他监听器
     this.notifyListeners('data', data);
   }
   
-  // 添加监听器
   addListener(callback) {
     this.listeners.add(callback);
     return () => this.listeners.delete(callback);
   }
   
-  // 通知监听器
   notifyListeners(event, data) {
     this.listeners.forEach(callback => {
       try {
         callback(event, data);
       } catch (error) {
-        console.error('Data generator listener error:', error);
+        // 静默处理错误，避免影响其他监听器
       }
     });
   }
   
-  // 模拟WebSocket的close方法
   close() {
     this.isRunning = false;
     
@@ -118,12 +106,10 @@ export class SimpleDataGenerator {
     }
   }
   
-  // 模拟WebSocket的send方法
   send(data) {
-    console.log('SimpleDataGenerator send:', data);
+    // WebSocket send方法的模拟实现，当前为空
   }
   
-  // 获取统计信息
   getStats() {
     return {
       totalGenerated: this.dataCount,
@@ -134,7 +120,6 @@ export class SimpleDataGenerator {
   }
 }
 
-// 工厂函数
 export function createSimpleDataGenerator(options) {
   const generator = new SimpleDataGenerator(options);
   generator.start();
