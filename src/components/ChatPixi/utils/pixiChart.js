@@ -531,7 +531,7 @@ export class PixiChart {
         const bestDataPoint = this.findBestMarkerPosition(marker.originalTimestamp || marker.timestamp, marker.originalPrice || marker.price);
         
         if (bestDataPoint) {
-          console.log(`调整标记点位置: ID=${marker.id}, 从 ${new Date(marker.timestamp).toLocaleTimeString()} 调整到 ${new Date(bestDataPoint.timestamp).toLocaleTimeString()}`);
+          // console.log(`调整标记点位置: ID=${marker.id}, 从 ${new Date(marker.timestamp).toLocaleTimeString()} 调整到 ${new Date(bestDataPoint.timestamp).toLocaleTimeString()}`);
           
           marker.timestamp = bestDataPoint.timestamp;
           marker.price = bestDataPoint.price;
@@ -541,7 +541,7 @@ export class PixiChart {
     });
     
     if (adjustedCount > 0) {
-      console.log(`调整了 ${adjustedCount} 个标记点的位置`);
+      // console.log(`调整了 ${adjustedCount} 个标记点的位置`);
       this.drawMarkers(); // 重新绘制标记点
     }
   }
@@ -1046,7 +1046,7 @@ export class PixiChart {
     
     // 如果时间窗口内没有数据点，扩大搜索范围
     if (candidates.length === 0) {
-      console.log('时间窗口内无数据点，使用最接近的数据点');
+      // console.log('时间窗口内无数据点，使用最接近的数据点');
       return this.data.reduce((closest, current) => {
         const closestDiff = Math.abs(closest.timestamp - targetTimestamp);
         const currentDiff = Math.abs(current.timestamp - targetTimestamp);
@@ -1240,7 +1240,7 @@ export class PixiChart {
             this.markerGraphics.moveTo(x, y);
             this.markerGraphics.lineTo(markerFutureX, y); // 水平线到竖线位置
             
-            console.log(`绘制标记点 ${marker.id} 的连接线: 从标记点(${x.toFixed(2)}, ${y.toFixed(2)}) 到竖线位置(${markerFutureX.toFixed(2)}, ${y.toFixed(2)})`);
+            // console.log(`绘制标记点 ${marker.id} 的连接线: 从标记点(${x.toFixed(2)}, ${y.toFixed(2)}) 到竖线位置(${markerFutureX.toFixed(2)}, ${y.toFixed(2)})`);
           }
         }
         
@@ -1271,7 +1271,7 @@ export class PixiChart {
           lineGraphics.moveTo(markerFutureX, 0); // 从图表顶部开始
           lineGraphics.lineTo(markerFutureX, chartHeight); // 到图表底部
           
-          console.log(`绘制标记点 ${marker.id} 的竖线: 标记点时间=${new Date(marker.timestamp).toLocaleTimeString()}, 竖线时间=${new Date(markerFutureTime).toLocaleTimeString()}, X坐标=${markerFutureX.toFixed(2)}`);
+          // console.log(`绘制标记点 ${marker.id} 的竖线: 标记点时间=${new Date(marker.timestamp).toLocaleTimeString()}, 竖线时间=${new Date(markerFutureTime).toLocaleTimeString()}, X坐标=${markerFutureX.toFixed(2)}`);
         }
         
         this.markerLinesContainer.addChild(lineGraphics);

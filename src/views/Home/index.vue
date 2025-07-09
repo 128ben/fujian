@@ -1006,15 +1006,16 @@ function placeOrderFun(buyType) { //买入
       // });
       
       // 立即添加标记点，使用最新的实时数据
+      console.log('res',res);
       const markerData = {
         id: res.data.order.id,
-        timestamp: currentTimestamp, // 使用实时数据的时间戳
-        price: currentRealTimePrice, // 使用实时数据的价格
-        type: buyType === 1 ? 'buy' : 'sell',
-        color: buyType === 1 ? 0x00ff00 : 0xff0000, // 绿色买涨，红色买跌
+        timestamp: res.data.strikeTime, // 使用实时数据的时间戳
+        price: res.data.order.open_price, // 使用实时数据的价格
+        type: res.data.order.buy_type === 1 ? 'buy' : 'sell',
+        color: res.data.order.buy_type === 1 ? 0x00ff00 : 0xff0000, // 绿色买涨，红色买跌
         size: 4, // 调整为小点，4像素大小
         label: buyType === 1 ? 'Buy Up' : 'Buy Down',
-        amount: from.amount
+        amount: res.data.order.amount
       };
       
       // 添加到标记点数组

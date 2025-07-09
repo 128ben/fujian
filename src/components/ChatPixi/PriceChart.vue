@@ -184,8 +184,8 @@ watch(
   
   (newData, oldData) => {
 
-    console.log('newData',newData)
-    console.log('oldData',oldData)
+    // console.log('newData',newData)
+    // console.log('oldData',oldData)
 
     if (isDataSourceSwitching.value) {
       return;
@@ -244,6 +244,7 @@ watch(
   () => props.markerPoints,
   (newMarkers) => {
     if (pixiChart && newMarkers && newMarkers.length > 0) {
+      console.log('newMarkers',newMarkers)
       pixiChart.updateMarkers(newMarkers);
     }
   },
