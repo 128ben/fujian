@@ -94,6 +94,7 @@ export class PixiChart {
     this.pulseContainer = new PIXI.Container();
     this.priceLabelsContainer = new PIXI.Container();
     this.markersContainer = new PIXI.Container(); // 标记点容器
+    this.markerTextContainer = new PIXI.Container(); // 标记点文本标签容器
     
     // 添加到stage，顺序很重要
     this.app.stage.addChild(this.gridContainer);
@@ -116,6 +117,7 @@ export class PixiChart {
     this.chartContainer.addChild(this.lineGraphics);
     this.latestPriceLineContainer.addChild(this.latestPriceLineGraphics);
     this.markersContainer.addChild(this.markerGraphics); // 添加标记点绘制对象
+    this.markersContainer.addChild(this.markerTextContainer); // 添加文本标签容器到标记点容器中
     this.pulseContainer.addChild(this.pulseGraphics);
     this.gridContainer.addChild(this.futureTimeLineGraphics);
     
@@ -1153,6 +1155,11 @@ export class PixiChart {
     this.markerGraphics.clear();
     this.markerLinesContainer.removeChildren(); // 清除旧的竖线
     
+    // 清除之前的标记点文本标签
+    if (this.markerTextContainer) {
+      this.markerTextContainer.removeChildren();
+    }
+    
     const currentTime = Date.now();
     const chartWidth = this.options.width;
     const chartHeight = this.options.height;
@@ -1168,7 +1175,7 @@ export class PixiChart {
     // 检查每个标记点是否与折线端点相遇
     this.markers.forEach(marker => {
       // 计算标记点时间15秒后的X坐标（竖线位置）
-      const markerFutureTime = marker.timestamp + 17000; // 标记点时间 + 15秒
+      const markerFutureTime = marker.timestamp + 15000; // 标记点时间 + 15秒
       const markerFutureX = this.timeToX(markerFutureTime, currentTime, chartWidth);
       
       // 计算折线端点位置
@@ -1267,6 +1274,43 @@ export class PixiChart {
         this.markerGraphics.drawCircle(x, y, dotSize);
         this.markerGraphics.lineStyle(0); // 重置线条样式
 
+        // 添加金额标签
+        if (marker.amount && marker.amount > 0) {
+          const amountText = `$${marker.amount}`;
+          
+          // 根据缩放调整字体大小
+          const fontSize = Math.max(10, Math.min(16, 12 / Math.sqrt(this.viewState.scaleX)));
+          
+          const textStyle = {
+            fontFamily: 'Arial',
+            fontSize: fontSize,
+            fill: 0xffffff,
+            fontWeight: 'bold',
+            stroke: marker.color,
+            strokeThickness: 1
+          };
+          
+          const amountLabel = new PIXI.Text(amountText, textStyle);
+          
+          // 计算标签位置 - 在标记点上方
+          const labelOffsetY = dotSize + 15; // 标签距离标记点的垂直距离
+          amountLabel.x = x - amountLabel.width / 2; // 水平居中
+          amountLabel.y = y - labelOffsetY; // 在标记点上方
+          
+          // 确保标签在可视范围内
+          if (amountLabel.x < 0) {
+            amountLabel.x = 5;
+          } else if (amountLabel.x + amountLabel.width > chartWidth) {
+            amountLabel.x = chartWidth - amountLabel.width - 5;
+          }
+          
+          if (amountLabel.y < 0) {
+            amountLabel.y = y + dotSize + 5; // 如果上方超出，则显示在下方
+          }
+          
+          this.markerTextContainer.addChild(amountLabel);
+        }
+
         // 绘制标记点对应的竖线
         const lineGraphics = new PIXI.Graphics();
         lineGraphics.lineStyle(1, marker.color, 0.6); // 使用标记点相同的颜色，透明度0.6
@@ -1319,7 +1363,11 @@ export class PixiChart {
     if (this.markerGraphics) {
       this.markerGraphics.clear();
     }
-    console.log('清除所有标记点');
+    // 清除文本标签容器
+    if (this.markerTextContainer) {
+      this.markerTextContainer.removeChildren();
+    }
+    console.log('清除所有标记点和文本标签');
   }
 
   // 移除指定标记点
