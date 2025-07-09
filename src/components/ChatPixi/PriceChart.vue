@@ -83,7 +83,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch, nextTick, defineProps, defineExpose } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch, nextTick, defineProps, defineExpose, defineEmits } from 'vue';
 import { PriceDataManager } from './utils/dataManager.js';
 import { PixiChart } from './utils/pixiChart.js';
 
@@ -113,6 +113,8 @@ const props = defineProps({
     default: () => []
   }
 });
+
+const emit = defineEmits(['markersRemoved']);
 
 const chartContainer = ref(null);
 const currentPrice = ref(100);
@@ -275,7 +277,11 @@ function initializeChart() {
     pointColor: 0xffffff,
     latestPointColor: 0xff4444,
     animationDuration: 400,
-    animationEnabled: false
+    animationEnabled: false,
+    onMarkersRemoved: (removedMarkerIds) => {
+      console.log('标记点被移除，通知父组件:', removedMarkerIds);
+      emit('markersRemoved', removedMarkerIds);
+    }
   });
 }
 

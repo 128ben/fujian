@@ -1168,14 +1168,14 @@ export class PixiChart {
     // 检查每个标记点是否与折线端点相遇
     this.markers.forEach(marker => {
       // 计算标记点时间15秒后的X坐标（竖线位置）
-      const markerFutureTime = marker.timestamp + 15000; // 标记点时间 + 15秒
+      const markerFutureTime = marker.timestamp + 17000; // 标记点时间 + 15秒
       const markerFutureX = this.timeToX(markerFutureTime, currentTime, chartWidth);
       
       // 计算折线端点位置
       const endPointX = this.timeToX(currentTime, currentTime, chartWidth); // 当前时间对应的X坐标
       
       // 检查竖线是否与折线端点相遇（允许一定的误差范围）
-      const meetingThreshold = 10; // 像素阈值
+      const meetingThreshold = 1; // 像素阈值
       const isMarkerLineMeetingEndPoint = Math.abs(markerFutureX - endPointX) <= meetingThreshold;
       
       // 如果竖线与折线端点相遇，标记为需要移除
@@ -1200,6 +1200,11 @@ export class PixiChart {
       });
       
       console.log(`移除了 ${markersToRemove.length} 个与折线端点相遇的标记点，剩余 ${this.markers.length} 个标记点`);
+      
+      // 通知父组件标记点已被移除
+      if (this.options.onMarkersRemoved && typeof this.options.onMarkersRemoved === 'function') {
+        this.options.onMarkersRemoved(markersToRemove);
+      }
     }
     
     // 现在绘制剩余的标记点

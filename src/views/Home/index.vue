@@ -113,13 +113,14 @@
           :maxDataPoints="50000"
           :enablePerformanceMonitor="true" /> -->
           <PriceChart 
+            ref="priceChartRef"
             :realTimeData="chartRealTimeData"
             :currentPriceData="placeOrderForm.buyAmount"
             :useExternalData="true"
             :renderDelay="1000"
             :dataSourceId="placeOrderForm.type"
             :markerPoints="markerPoints"
-            ref="priceChartRef"
+            @markersRemoved="handleMarkersRemoved"
           />
       </div>
     </div>
@@ -1014,7 +1015,7 @@ function placeOrderFun(buyType) { //买入
         type: res.data.order.buy_type === 1 ? 'buy' : 'sell',
         color: res.data.order.buy_type === 1 ? 0x00ff00 : 0xff0000, // 绿色买涨，红色买跌
         size: 4, // 调整为小点，4像素大小
-        label: buyType === 1 ? 'Buy Up' : 'Buy Down',
+        label: res.data.order.buy_type === 1 ? 'Buy Up' : 'Buy Down',
         amount: res.data.order.amount
       };
       
@@ -1068,12 +1069,15 @@ function deleteBuySell(id) {
       // 同时移除对应的标记点
       const markerIndex = markerPoints.value.findIndex(marker => marker.id === id);
       if (markerIndex !== -1) {
+        console.log(`从markerPoints中移除标记点: ${id}`);
         markerPoints.value.splice(markerIndex, 1);
-      }
-      
-      // 如果有PriceChart组件，移除标记点
-      if (priceChartRef.value) {
-        priceChartRef.value.removeMarker(id);
+        
+        // 如果有PriceChart组件，移除标记点
+        if (priceChartRef.value) {
+          priceChartRef.value.removeMarker(id);
+        }
+      } else {
+        console.log(`未找到要移除的标记点: ${id}`);
       }
       
       break;
@@ -1394,6 +1398,14 @@ function clearChartDataBuffer() {
     console.log('清理图表更新定时器');
   }
 }
+
+// 处理标记点被移除的事件
+const handleMarkersRemoved = (removedMarkerIds) => {
+  console.log('接收到标记点移除事件:', removedMarkerIds);
+  // 从markerPoints数组中移除对应的标记点
+  markerPoints.value = markerPoints.value.filter(marker => !removedMarkerIds.includes(marker.id));
+  console.log(`已从markerPoints中移除 ${removedMarkerIds.length} 个标记点，剩余 ${markerPoints.value.length} 个`);
+};
 </script>
 <style lang="scss" scoped>
 .page-box {
