@@ -51,6 +51,10 @@
           <span>🔄</span>
           <span>重置</span>
         </button>
+        <button @click="validateSync" class="control-btn">
+          <span>🔍</span>
+          <span>同步检查</span>
+        </button>
       </div>
     </div>
     
@@ -373,6 +377,27 @@ function resetChart() {
   connectionStatus.value = 'connected';
 }
 
+function validateSync() {
+  if (pixiChart) {
+    const syncResult = pixiChart.validateGridChartSync();
+    if (syncResult) {
+      const statusMsg = syncResult.isInSync ? '✅ 网格与折线图完美同步' : '⚠️ 网格与折线图存在偏差';
+      console.log(`🔍 同步验证结果: ${statusMsg}`);
+      console.log(`时间同步误差: ${syncResult.timeSyncError.toFixed(4)}px`);
+      console.log(`价格同步误差: ${syncResult.priceSyncError.toFixed(4)}px`);
+      
+      // 在开发环境中显示更详细的信息
+      if (process.env.NODE_ENV === 'development') {
+        alert(`同步检查结果:\n${statusMsg}\n时间误差: ${syncResult.timeSyncError.toFixed(4)}px\n价格误差: ${syncResult.priceSyncError.toFixed(4)}px`);
+      }
+    } else {
+      console.log('⚠️ 无法验证同步性：没有数据点');
+    }
+  } else {
+    console.log('⚠️ 无法验证同步性：图表未初始化');
+  }
+}
+
 function addData(dataPoint) {
   if (dataManager) {
     const formattedData = formatExternalData(dataPoint);
@@ -461,6 +486,7 @@ function cleanup() {
 defineExpose({
   addData,
   resetChart,
+  validateSync,
   getChartInstance,
   getDataManager,
   zoomIn,

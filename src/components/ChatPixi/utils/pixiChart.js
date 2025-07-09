@@ -148,38 +148,38 @@ export class PixiChart {
   }
   
   setupInteraction() {
-    const canvas = this.app.canvas || this.app.view;
+    const canvas = this.app.view;
     
+    // 鼠标滚轮缩放
     canvas.addEventListener('wheel', (e) => {
       e.preventDefault();
       const delta = e.deltaY > 0 ? 0.9 : 1.1;
       this.zoom(delta, e.offsetX, e.offsetY);
     });
     
+    // 鼠标拖拽
     canvas.addEventListener('mousedown', (e) => {
-      if (e.button === 0) { // 左键
-        this.viewState.isDragging = true;
-        this.viewState.dragStart = { x: e.offsetX, y: e.offsetY };
-      }
+      this.viewState.isDragging = true;
+      this.viewState.lastMouseX = e.offsetX;
+      this.viewState.lastMouseY = e.offsetY;
     });
     
     canvas.addEventListener('mousemove', (e) => {
       if (this.viewState.isDragging) {
-        const deltaX = e.offsetX - this.viewState.dragStart.x;
-        // const deltaY = e.offsetY - this.viewState.dragStart.y; // 注释掉y轴拖拽
-        
-        // 检测用户是否向左拖动
-        if (deltaX > 0 && !this.viewState.hasUserDraggedLeft) {
-          this.viewState.hasUserDraggedLeft = true;
-          console.log('用户首次向左拖动，开始显示历史数据');
-          // 立即重新绘制图表以显示历史数据
-          this.drawChart();
-        }
+        const deltaX = e.offsetX - this.viewState.lastMouseX;
+        const deltaY = e.offsetY - this.viewState.lastMouseY;
         
         this.viewState.offsetX += deltaX;
-        // this.viewState.offsetY += deltaY; // 注释掉y轴偏移调整
+        // this.viewState.offsetY += deltaY; // 注释掉y轴拖拽
         
-        this.viewState.dragStart = { x: e.offsetX, y: e.offsetY };
+        // 检查用户是否向左拖动（查看历史数据）
+        if (deltaX > 0) {
+          this.viewState.hasUserDraggedLeft = true;
+        }
+        
+        this.viewState.lastMouseX = e.offsetX;
+        this.viewState.lastMouseY = e.offsetY;
+        
         this.updateView();
       }
     });
@@ -192,25 +192,7 @@ export class PixiChart {
       this.viewState.isDragging = false;
     });
   }
-  
-  zoom(factor, centerX, centerY) {
-    const oldScaleX = this.viewState.scaleX;
-    const oldScaleY = this.viewState.scaleY;
-    
-    // 只对x轴进行缩放，y轴保持不变
-    this.viewState.scaleX = Math.max(0.1, Math.min(10, this.viewState.scaleX * factor));
-    // this.viewState.scaleY = Math.max(0.1, Math.min(10, this.viewState.scaleY * factor)); // 注释掉y轴缩放
-    
-    // 调整偏移以保持缩放中心
-    const scaleFactorX = this.viewState.scaleX / oldScaleX;
-    // const scaleFactorY = this.viewState.scaleY / oldScaleY; // 注释掉y轴缩放因子
-    
-    this.viewState.offsetX = centerX - (centerX - this.viewState.offsetX) * scaleFactorX;
-    // this.viewState.offsetY = centerY - (centerY - this.viewState.offsetY) * scaleFactorY; // 注释掉y轴偏移调整
-    
-    this.updateView();
-  }
-  
+
   updateView() {
     // 图表容器保持原始缩放，变换通过坐标转换函数处理
     this.chartContainer.position.set(0, 0);
@@ -235,6 +217,7 @@ export class PixiChart {
     this.textContainer.position.set(0, 0);
     this.textContainer.scale.set(1, 1);
     
+    // 确保网格和图表使用完全相同的坐标系统
     this.drawGrid();
     this.drawChart();
     this.drawLatestPriceLine(); // 绘制最新价格线
@@ -243,6 +226,9 @@ export class PixiChart {
     if (this.markers.length > 0) {
       this.drawMarkers();
     }
+    
+    // 绘制未来时间线，确保与其他元素同步
+    this.drawFutureTimeLine();
   }
   
   drawGrid() {
@@ -259,18 +245,18 @@ export class PixiChart {
     // 设置网格样式
     this.gridGraphics.lineStyle(1, this.options.gridColor, 0.3);
     
-    // 根据缩放级别调整网格密度
+    // 根据缩放级别调整网格密度 - 确保与折线图使用相同的缩放参数
     const baseGridSpacing = 100; // 基础网格间距
     const timeGridSpacing = Math.max(20, baseGridSpacing / this.viewState.scaleX); // 时间轴网格间距
     
-    // 计算时间间隔（根据缩放调整）
+    // 计算时间间隔（根据缩放调整）- 与折线图数据使用相同的时间范围
     const baseTimeInterval = 2500; // 基础时间间隔2.5秒
     const timeInterval = Math.max(500, baseTimeInterval / this.viewState.scaleX); // 动态时间间隔，最小500ms
     
-    // 绘制垂直网格线（时间轴）- 使用与数据相同的坐标转换逻辑
+    // 绘制垂直网格线（时间轴）- 使用与折线图数据完全相同的坐标转换逻辑
     const numTimeLines = Math.ceil(width / timeGridSpacing) + 4; // 增加网格线数量确保覆盖
     
-    // 计算当前可见的时间范围，以覆盖整个图表宽度
+    // 计算当前可见的时间范围，以覆盖整个图表宽度 - 与折线图使用相同的时间范围计算
     const visibleTimeRange = this.timeRange / this.viewState.scaleX;
     const visibleTimeStart = currentTime - visibleTimeRange * 0.75; // 75% of time is in the past
     const visibleTimeEnd = currentTime + visibleTimeRange * 0.25;   // 25% of time is in the future
@@ -280,7 +266,7 @@ export class PixiChart {
     const endGridTime = Math.ceil(visibleTimeEnd / timeInterval) * timeInterval;
     
     for (let timestamp = startGridTime; timestamp <= endGridTime + timeInterval; timestamp += timeInterval) {
-      // 使用与折线数据相同的坐标转换方法
+      // 使用与折线数据完全相同的坐标转换方法
       const x = this.timeToX(timestamp, currentTime, width);
       
       if (x >= -timeGridSpacing && x <= width + timeGridSpacing) {
@@ -292,7 +278,7 @@ export class PixiChart {
         const timeText = this.formatTimeLabel(timestamp);
         
         // 根据缩放调整字体大小
-        const fontSize = 12;
+        const fontSize = Math.max(10, Math.min(14, 12 / Math.sqrt(this.viewState.scaleX))); // 动态字体大小
         const text = new PIXI.Text(timeText, {
           fontFamily: 'Arial',
           fontSize: fontSize,
@@ -306,7 +292,7 @@ export class PixiChart {
       }
     }
     
-    // 绘制水平网格线（价格轴）- 使用与数据相同的坐标转换逻辑
+    // 绘制水平网格线（价格轴）- 使用与折线图数据完全相同的坐标转换逻辑
     const currentPriceRange = this.priceRange.max - this.priceRange.min;
     const basePriceStep = currentPriceRange / 8;
     const adjustedPriceStep = Math.max(0.01, basePriceStep); // 移除y轴缩放影响，保持固定间距
@@ -320,7 +306,7 @@ export class PixiChart {
     const endGridPrice = Math.ceil(visiblePriceMax / adjustedPriceStep) * adjustedPriceStep;
     
     for (let price = startGridPrice; price <= endGridPrice; price += adjustedPriceStep) {
-      // 使用与折线数据相同的坐标转换方法
+      // 使用与折线数据完全相同的坐标转换方法
       const y = this.priceToY(price);
       
       if (y >= -50 && y <= height + 50) {
@@ -330,7 +316,7 @@ export class PixiChart {
         
         // 添加价格标签，使用固定精度
         const precision = 2; // 固定精度，不受缩放影响
-        const fontSize = 12;
+        const fontSize = 12; // 价格标签字体大小保持固定
         const priceText = new PIXI.Text(price.toFixed(precision), {
           fontFamily: 'Arial',
           fontSize: fontSize,
@@ -357,10 +343,10 @@ export class PixiChart {
     const currentTime = Date.now();
     const chartWidth = this.options.width;
     
-    // 根据缩放级别调整可见时间范围
+    // 根据缩放级别调整可见时间范围 - 与网格使用完全相同的计算逻辑
     const adjustedTimeRange = this.timeRange / this.viewState.scaleX;
     
-    // 获取可见数据，考虑缩放和偏移
+    // 获取可见数据，考虑缩放和偏移 - 与网格使用相同的视图状态
     let visibleData = this.data.filter(point => {
       const timeDiff = currentTime - point.timestamp;
       const timeOffset = -this.viewState.offsetX / this.viewState.scaleX / chartWidth * this.timeRange;
@@ -383,13 +369,20 @@ export class PixiChart {
     // 单点处理
     if (visibleData.length === 1) {
       const point = visibleData[0];
+      // 使用与网格完全相同的坐标转换方法
       const x = this.timeToX(point.timestamp, currentTime, chartWidth);
       const y = this.priceToY(point.price);
+      
+      // 绘制单点
+      this.lineGraphics.beginFill(this.options.lineColor, 1);
+      this.lineGraphics.drawCircle(x, y, 3);
+      this.lineGraphics.endFill();
+      
       this.lastEndPoint = { x, y };
       return;
     }
     
-    // 绘制折线
+    // 绘制折线 - 确保与网格使用相同的坐标系统
     this.drawSmoothLine(visibleData, currentTime, chartWidth);
   }
   
@@ -406,9 +399,10 @@ export class PixiChart {
       drawToIndex = visibleData.length - 2;
     }
     
-    // 绘制静态线段
+    // 绘制静态线段 - 使用与网格完全相同的坐标转换
     for (let i = 0; i <= drawToIndex; i++) {
       const point = visibleData[i];
+      // 确保使用与网格相同的坐标转换方法
       const x = this.timeToX(point.timestamp, currentTime, chartWidth);
       const y = this.priceToY(point.price);
       
@@ -440,6 +434,7 @@ export class PixiChart {
     const fromDataPoint = visibleData[visibleData.length - 2];
     const toDataPoint = visibleData[visibleData.length - 1];
     
+    // 使用与网格相同的坐标转换方法
     const fromX = this.timeToX(fromDataPoint.timestamp, currentTime, chartWidth);
     const fromY = this.priceToY(fromDataPoint.price);
     const toX = this.timeToX(toDataPoint.timestamp, currentTime, chartWidth);
@@ -935,7 +930,82 @@ export class PixiChart {
     const baseX = latestX - (timeDiff / this.timeRange) * chartWidth;
     
     // 应用视图变换：先缩放再偏移
-    return baseX * this.viewState.scaleX + this.viewState.offsetX;
+    const transformedX = baseX * this.viewState.scaleX + this.viewState.offsetX;
+    
+    // 调试信息（可选）
+    // console.log(`timeToX: timestamp=${timestamp}, baseX=${baseX.toFixed(2)}, transformedX=${transformedX.toFixed(2)}, scaleX=${this.viewState.scaleX.toFixed(2)}`);
+    
+    return transformedX;
+  }
+
+  // 验证网格和折线图同步性的调试方法
+  validateGridChartSync() {
+    if (this.data.length === 0) return;
+    
+    const currentTime = Date.now();
+    const chartWidth = this.options.width;
+    
+    // 获取最新的数据点
+    const latestDataPoint = this.data[this.data.length - 1];
+    
+    // 计算折线图中该点的坐标
+    const chartX = this.timeToX(latestDataPoint.timestamp, currentTime, chartWidth);
+    const chartY = this.priceToY(latestDataPoint.price);
+    
+    // 计算网格中相应时间和价格线的坐标
+    const gridTimeX = this.timeToX(latestDataPoint.timestamp, currentTime, chartWidth);
+    const gridPriceY = this.priceToY(latestDataPoint.price);
+    
+    // 检查同步性
+    const timeSyncError = Math.abs(chartX - gridTimeX);
+    const priceSyncError = Math.abs(chartY - gridPriceY);
+    
+    console.log('🔍 网格与折线图同步检查:', {
+      数据点时间: new Date(latestDataPoint.timestamp).toLocaleTimeString(),
+      数据点价格: latestDataPoint.price.toFixed(2),
+      折线图X坐标: chartX.toFixed(2),
+      网格时间X坐标: gridTimeX.toFixed(2),
+      时间同步误差: timeSyncError.toFixed(4),
+      折线图Y坐标: chartY.toFixed(2),
+      网格价格Y坐标: gridPriceY.toFixed(2),
+      价格同步误差: priceSyncError.toFixed(4),
+      缩放级别: this.viewState.scaleX.toFixed(2),
+      偏移量: this.viewState.offsetX.toFixed(2),
+      同步状态: (timeSyncError < 0.1 && priceSyncError < 0.1) ? '✅ 完美同步' : '⚠️ 存在偏差'
+    });
+    
+    return {
+      timeSyncError,
+      priceSyncError,
+      isInSync: timeSyncError < 0.1 && priceSyncError < 0.1
+    };
+  }
+
+  // 重写zoom方法，添加同步验证
+  zoom(factor, centerX, centerY) {
+    const oldScaleX = this.viewState.scaleX;
+    const oldScaleY = this.viewState.scaleY;
+    
+    // 只对x轴进行缩放，y轴保持不变
+    this.viewState.scaleX = Math.max(0.1, Math.min(10, this.viewState.scaleX * factor));
+    // this.viewState.scaleY = Math.max(0.1, Math.min(10, this.viewState.scaleY * factor)); // 注释掉y轴缩放
+    
+    // 调整偏移以保持缩放中心
+    const scaleFactorX = this.viewState.scaleX / oldScaleX;
+    // const scaleFactorY = this.viewState.scaleY / oldScaleY; // 注释掉y轴缩放因子
+    
+    this.viewState.offsetX = centerX - (centerX - this.viewState.offsetX) * scaleFactorX;
+    // this.viewState.offsetY = centerY - (centerY - this.viewState.offsetY) * scaleFactorY; // 注释掉y轴偏移调整
+    
+    // 立即更新视图以确保同步
+    this.updateView();
+    
+    // 验证同步性（在开发环境中启用）
+    if (process.env.NODE_ENV === 'development') {
+      setTimeout(() => {
+        this.validateGridChartSync();
+      }, 100); // 延迟100ms确保渲染完成
+    }
   }
 
   // 绘制未来时间线
