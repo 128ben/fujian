@@ -19,6 +19,8 @@ export class PixiChart {
       showLatestPriceLine: options.showLatestPriceLine !== false, // 默认显示最新价格线
       showHistoricalData: options.showHistoricalData !== false, // 默认显示历史数据
       historicalDataThreshold: options.historicalDataThreshold || 30000, // 历史数据时间阈值(30秒)
+      enableRandomMarkers: options.enableRandomMarkers !== false, // 默认启用随机标记点
+      randomMarkerInterval: options.randomMarkerInterval || 30000, // 随机标记点间隔(30秒)
       ...options
     };
     
@@ -61,6 +63,10 @@ export class PixiChart {
     this.markerGraphics = new PIXI.Graphics(); // 标记点绘制对象
     this.markerLines = new Map(); // 存储每个标记点对应的竖线对象
     this.markerLinesContainer = new PIXI.Container(); // 标记点竖线容器
+    
+    // 随机标记点管理
+    this.randomMarkerTimer = null;
+    this.randomMarkerCounter = 0;
     
     this.init();
   }
@@ -145,6 +151,9 @@ export class PixiChart {
     
     // 初始化绘制
     this.drawGrid();
+    
+    // 启动随机标记点定时器
+    this.startRandomMarkerTimer();
     
     // console.log('PixiChart initialization complete');
   }
@@ -762,6 +771,9 @@ export class PixiChart {
   }
   
   destroy() {
+    // 停止随机标记点定时器
+    this.stopRandomMarkerTimer();
+    
     if (this.app) {
       this.app.destroy(true);
     }
@@ -1175,7 +1187,7 @@ export class PixiChart {
     // 检查每个标记点是否与折线端点相遇
     this.markers.forEach(marker => {
       // 计算标记点时间15秒后的X坐标（竖线位置）
-      const markerFutureTime = marker.timestamp + 15000; // 标记点时间 + 15秒
+      const markerFutureTime = marker.timestamp + 17000; // 标记点时间 + 15秒
       const markerFutureX = this.timeToX(markerFutureTime, currentTime, chartWidth);
       
       // 计算折线端点位置
@@ -1432,5 +1444,125 @@ export class PixiChart {
     if (!this.viewState.hasUserDraggedLeft) {
       this.drawChart();
     }
+  }
+
+  // 启动随机标记点定时器
+  startRandomMarkerTimer() {
+    if (!this.options.enableRandomMarkers) {
+      console.log('随机标记点功能已禁用');
+      return;
+    }
+
+    // 清除现有定时器
+    this.stopRandomMarkerTimer();
+
+    console.log(`启动随机标记点定时器，间隔: ${this.options.randomMarkerInterval}ms`);
+    
+    this.randomMarkerTimer = setInterval(() => {
+      this.generateRandomMarker();
+    }, this.options.randomMarkerInterval);
+  }
+
+  // 停止随机标记点定时器
+  stopRandomMarkerTimer() {
+    if (this.randomMarkerTimer) {
+      clearInterval(this.randomMarkerTimer);
+      this.randomMarkerTimer = null;
+      console.log('随机标记点定时器已停止');
+    }
+  }
+
+  // 生成随机标记点
+  generateRandomMarker() {
+    // 检查是否有足够的数据点来生成标记点
+    if (this.data.length === 0) {
+      console.log('没有折线图数据，跳过随机标记点生成');
+      return;
+    }
+
+    // 获取当前时间
+    const currentTime = Date.now();
+    
+    // 随机选择买涨或买跌
+    const isBuyUp = Math.random() > 0.5;
+    const markerType = isBuyUp ? 'buy' : 'sell';
+    
+    // 随机生成金额 (范围: 10-100)
+    const amounts = [10, 20, 30, 50, 100];
+    const randomAmount = amounts[Math.floor(Math.random() * amounts.length)];
+    
+    // 获取最新的数据点作为标记点位置
+    const latestDataPoint = this.data[this.data.length - 1];
+    
+    // 增加计数器用于生成唯一ID
+    this.randomMarkerCounter++;
+    
+    // 创建随机标记点数据
+    const randomMarkerData = {
+      id: `random_${this.randomMarkerCounter}_${Date.now()}`,
+      timestamp: latestDataPoint.timestamp, // 使用最新数据点的时间戳
+      price: latestDataPoint.price, // 使用最新数据点的价格
+      type: markerType,
+      color: isBuyUp ? 0x00ff00 : 0xff0000, // 绿色买涨，红色买跌
+      size: 4,
+      label: isBuyUp ? 'Random Buy Up' : 'Random Buy Down',
+      amount: randomAmount,
+      isRandom: true // 标识这是随机生成的标记点
+    };
+
+    // 添加标记点到图表
+    const markerId = this.addMarker(randomMarkerData);
+    
+    if (markerId) {
+      console.log('随机标记点生成成功:', {
+        ID: markerId,
+        类型: markerType,
+        方向: isBuyUp ? '买涨' : '买跌',
+        金额: `$${randomAmount}`,
+        时间: new Date(latestDataPoint.timestamp).toLocaleTimeString(),
+        价格: latestDataPoint.price.toFixed(2)
+      });
+
+      // 通知父组件有新的随机标记点生成
+      if (this.options.onRandomMarkerGenerated && typeof this.options.onRandomMarkerGenerated === 'function') {
+        this.options.onRandomMarkerGenerated(randomMarkerData);
+      }
+    } else {
+      console.warn('随机标记点生成失败');
+    }
+  }
+
+  // 启用/禁用随机标记点
+  setRandomMarkersEnabled(enabled) {
+    this.options.enableRandomMarkers = enabled;
+    
+    if (enabled) {
+      this.startRandomMarkerTimer();
+      console.log('随机标记点功能已启用');
+    } else {
+      this.stopRandomMarkerTimer();
+      console.log('随机标记点功能已禁用');
+    }
+  }
+
+  // 设置随机标记点间隔
+  setRandomMarkerInterval(interval) {
+    this.options.randomMarkerInterval = interval;
+    console.log(`随机标记点间隔设置为: ${interval}ms`);
+    
+    // 如果当前启用了随机标记点，重新启动定时器
+    if (this.options.enableRandomMarkers) {
+      this.startRandomMarkerTimer();
+    }
+  }
+
+  // 获取随机标记点状态
+  getRandomMarkerStatus() {
+    return {
+      enabled: this.options.enableRandomMarkers,
+      interval: this.options.randomMarkerInterval,
+      isRunning: this.randomMarkerTimer !== null,
+      generatedCount: this.randomMarkerCounter
+    };
   }
 } 

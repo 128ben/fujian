@@ -111,6 +111,14 @@ const props = defineProps({
   markerPoints: {
     type: Array,
     default: () => []
+  },
+  enableRandomMarkers: {
+    type: Boolean,
+    default: true
+  },
+  randomMarkerInterval: {
+    type: Number,
+    default: 30000 // 30秒
   }
 });
 
@@ -278,9 +286,15 @@ function initializeChart() {
     latestPointColor: 0xff4444,
     animationDuration: 400,
     animationEnabled: false,
+    enableRandomMarkers: props.enableRandomMarkers,
+    randomMarkerInterval: props.randomMarkerInterval,
     onMarkersRemoved: (removedMarkerIds) => {
       console.log('标记点被移除，通知父组件:', removedMarkerIds);
       emit('markersRemoved', removedMarkerIds);
+    },
+    onRandomMarkerGenerated: (markerData) => {
+      console.log('随机标记点生成:', markerData);
+      // 可以在这里处理随机标记点生成事件，比如发送到父组件
     }
   });
 }
@@ -521,6 +535,25 @@ defineExpose({
   clearMarkers: () => {
     if (pixiChart) {
       pixiChart.clearMarkers();
+    }
+  },
+  // 随机标记点控制方法
+  setRandomMarkersEnabled: (enabled) => {
+    if (pixiChart) {
+      pixiChart.setRandomMarkersEnabled(enabled);
+    }
+  },
+  setRandomMarkerInterval: (interval) => {
+    if (pixiChart) {
+      pixiChart.setRandomMarkerInterval(interval);
+    }
+  },
+  getRandomMarkerStatus: () => {
+    return pixiChart ? pixiChart.getRandomMarkerStatus() : null;
+  },
+  generateRandomMarker: () => {
+    if (pixiChart) {
+      pixiChart.generateRandomMarker();
     }
   }
 });

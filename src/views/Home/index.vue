@@ -120,6 +120,8 @@
             :renderDelay="1000"
             :dataSourceId="placeOrderForm.type"
             :markerPoints="markerPoints"
+            :enableRandomMarkers="true"
+            :randomMarkerInterval="30000"
             @markersRemoved="handleMarkersRemoved"
           />
       </div>
