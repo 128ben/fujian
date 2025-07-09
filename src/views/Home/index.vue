@@ -390,6 +390,7 @@ const isShow = ref(true);
 const priceChartRef = ref(null);
 const chartRealTimeData = ref([]);
 const chartDataBuffer = ref([]); // 数据缓冲区，用于批量传递给图表组件
+const isFirstRender = ref(true); // 添加标志位，标记是否为第一次渲染
 
 // 标记点数据
 const markerPoints = ref([]);
@@ -429,6 +430,9 @@ watch(
     
     // 清理图表数据缓冲区
     clearChartDataBuffer();
+    
+    // 重置第一次渲染标志位
+    isFirstRender.value = true;
     
     // 保存当前的标记点数据（如果需要在切换后恢复）
     const currentMarkers = [...markerPoints.value];
@@ -584,7 +588,7 @@ function createWebSocket() { //数据获取
     const obj = JSON.parse(res);
     if (obj.success == 200) {
       if (obj.data.type == 'history') {
-        console.log(`接收到${obj.data.info[0]?.chain || 'unknown'}的历史数据:`, obj.data.info.length, '条');
+        // console.log(`接收到${obj.data.info[0]?.chain || 'unknown'}的历史数据:`, obj.data.info.length, '条');
         
         data.value = obj.data.info.map(d => {
           return {
@@ -594,22 +598,27 @@ function createWebSocket() { //数据获取
           }
         })
         
-        // 将历史数据也添加到图表
-        const historyDataForChart = obj.data.info.map(d => ({
-          timestamp: d.ts,
-          price: Number(d.amount),
-          volume: Math.floor(Math.random() * 10000),
-          label: d.ts,
-          y: Number(d.amount),
-          source: typeRef.value // 添加数据源标识
-        }));
-        
-        console.log(`准备添加${historyDataForChart.length}条历史数据到图表`);
-        
-        // 批量添加历史数据到图表
-        historyDataForChart.forEach(dataPoint => {
-          addDataToChartBuffer(dataPoint);
-        });
+        // 第一次渲染时不将历史数据添加到图表缓冲区
+        if (!isFirstRender.value) {
+          // 将历史数据也添加到图表
+          const historyDataForChart = obj.data.info.map(d => ({
+            timestamp: d.ts,
+            price: Number(d.amount),
+            volume: Math.floor(Math.random() * 10000),
+            label: d.ts,
+            y: Number(d.amount),
+            source: typeRef.value // 添加数据源标识
+          }));
+          
+          // console.log(`准备添加${historyDataForChart.length}条历史数据到图表`);
+          
+          // 批量添加历史数据到图表
+          historyDataForChart.forEach(dataPoint => {
+            addDataToChartBuffer(dataPoint);
+          });
+        } else {
+          console.log(`第一次渲染，跳过历史数据添加到图表，历史数据条数: ${obj.data.info.length}`);
+        }
         
         // 获取首屏以外的数据
         leftData.value = data.value.slice(0, -(xScale - lastGap));
@@ -618,14 +627,17 @@ function createWebSocket() { //数据获取
         canUpdate = true
         isShow.value = false
         
-        console.log(`${typeRef.value}历史数据加载完成，开始接收实时数据`);
+        // 标记第一次渲染完成
+        isFirstRender.value = false;
+        
+        // console.log(`${typeRef.value}历史数据加载完成，开始接收实时数据`);
       } else if (obj.data.type == 'realTimeNotify') { //|| obj.data.type == 'realTimeNotifyKline'
-        console.log("WebSocket最新数据:", obj.data);
+        // console.log("WebSocket最新数据:", obj.data);
         let d = obj.data.info
-        console.log(`数据链类型: ${d.chain}, 当前选择: ${typeRef.value}, 匹配: ${typeRef.value == d.chain}`);
+        // console.log(`数据链类型: ${d.chain}, 当前选择: ${typeRef.value}, 匹配: ${typeRef.value == d.chain}`);
         
         if (canUpdate && typeRef.value == d.chain) {
-          console.log(`处理${d.chain}的实时数据:`, d);
+          // console.log(`处理${d.chain}的实时数据:`, d);
           
           // 改数据
           if (ycArr.length) {
@@ -673,11 +685,11 @@ function createWebSocket() { //数据获取
             }
           } else {
             if (prev && new Date().getTime() - prev > 400) {
-              console.log(`添加${d.chain}实时数据到图表:`, {
-                timestamp: d.ts,
-                price: Number(d.idxPx),
-                chain: d.chain
-              });
+              // console.log(`添加${d.chain}实时数据到图表:`, {
+              //   timestamp: d.ts,
+              //   price: Number(d.idxPx),
+              //   chain: d.chain
+              // });
               
               // 添加数据到图表缓冲区
               addDataToChartBuffer({
@@ -737,8 +749,8 @@ function send() {
   args.timeframes = 1
   
   const msg = JSON.stringify(args);
-  console.log(`发送WebSocket消息:`, args);
-  console.log(`消息内容:`, msg);
+  // console.log(`发送WebSocket消息:`, args);
+  // console.log(`消息内容:`, msg);
   
   // 发送消息
   ws.send(msg);
@@ -984,14 +996,14 @@ function placeOrderFun(buyType) { //买入
       const currentTimestamp = realTimeData.value.length > 0 ? 
         realTimeData.value[realTimeData.value.length - 1].label : from.strikeTime;
       
-      console.log('下单成功，准备添加标记点:', {
-        订单ID: res.data.order.id,
-        下单类型: buyType === 1 ? '买涨' : '买跌',
-        下单时间: new Date(from.strikeTime).toLocaleTimeString(),
-        实时价格: currentRealTimePrice,
-        实时时间: new Date(currentTimestamp).toLocaleTimeString(),
-        价格数据长度: realTimeData.value.length
-      });
+      // console.log('下单成功，准备添加标记点:', {
+      //   订单ID: res.data.order.id,
+      //   下单类型: buyType === 1 ? '买涨' : '买跌',
+      //   下单时间: new Date(from.strikeTime).toLocaleTimeString(),
+      //   实时价格: currentRealTimePrice,
+      //   实时时间: new Date(currentTimestamp).toLocaleTimeString(),
+      //   价格数据长度: realTimeData.value.length
+      // });
       
       // 立即添加标记点，使用最新的实时数据
       const markerData = {
@@ -1333,7 +1345,7 @@ onBeforeUnmount(() => {
 const updateParentHeight = () => {
   if (parentRef.value) {
     parentHeight.value = parentRef.value.clientHeight
-    console.log(parentRef.value.clientHeight);
+    // console.log(parentRef.value.clientHeight);
   }
 }
 
@@ -1348,18 +1360,18 @@ function addDataToChartBuffer(dataPoint) {
   chartDataBuffer.value.push(dataPoint);
   
   // 添加调试信息
-  console.log(`添加${dataPoint.source || 'unknown'}数据到图表缓冲区:`, {
-    timestamp: dataPoint.timestamp,
-    price: dataPoint.price,
-    source: dataPoint.source
-  });
-  console.log('当前缓冲区大小:', chartDataBuffer.value.length);
+  // console.log(`添加${dataPoint.source || 'unknown'}数据到图表缓冲区:`, {
+  //   timestamp: dataPoint.timestamp,
+  //   price: dataPoint.price,
+  //   source: dataPoint.source
+  // });
+  // console.log('当前缓冲区大小:', chartDataBuffer.value.length);
   
   // 每隔500ms批量更新图表数据
   if (!window.chartUpdateTimer) {
     window.chartUpdateTimer = setInterval(() => {
       if (chartDataBuffer.value.length > 0) {
-        console.log(`批量更新图表数据，数量: ${chartDataBuffer.value.length}, 数据源: ${typeRef.value}`);
+        // console.log(`批量更新图表数据，数量: ${chartDataBuffer.value.length}, 数据源: ${typeRef.value}`);
         // 将缓冲区数据复制到图表数据中
         chartRealTimeData.value = [...chartDataBuffer.value];
         // 清空缓冲区
@@ -1374,6 +1386,7 @@ function clearChartDataBuffer() {
   console.log(`清理图表数据缓冲区，当前数据源: ${typeRef.value}`);
   chartDataBuffer.value = [];
   chartRealTimeData.value = [];
+  isFirstRender.value = true; // 重置第一次渲染标志位
   if (window.chartUpdateTimer) {
     clearInterval(window.chartUpdateTimer);
     window.chartUpdateTimer = null;

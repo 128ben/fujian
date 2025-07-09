@@ -145,6 +145,24 @@ let lastPriceValue = 100;
 
 onMounted(async () => {
   await nextTick();
+  
+  // // 打印组件挂载时的参数状态
+  // console.log('🚀 组件挂载完成 - 参数状态:', {
+  //   chartContainer: {
+  //     存在: !!chartContainer.value,
+  //     元素类型: chartContainer.value?.tagName,
+  //     尺寸: chartContainer.value ? {
+  //       width: chartContainer.value.offsetWidth,
+  //       height: chartContainer.value.offsetHeight
+  //     } : null
+  //   },
+  //   currentPrice: {
+  //     当前值: currentPrice.value,
+  //     类型: typeof currentPrice.value
+  //   },
+  //   时间戳: new Date().toLocaleString()
+  // });
+  
   initializeChart();
   setupDataManager();
   setupResize();
@@ -157,8 +175,14 @@ onUnmounted(() => {
 });
 
 watch(
+  
   () => props.realTimeData,
+  
   (newData, oldData) => {
+
+    console.log('newData',newData)
+    console.log('oldData',oldData)
+
     if (isDataSourceSwitching.value) {
       return;
     }
@@ -185,6 +209,7 @@ watch(
     }
   },
   { deep: true, immediate: true }
+  
 );
 
 watch(

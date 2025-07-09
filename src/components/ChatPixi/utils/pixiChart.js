@@ -66,7 +66,7 @@ export class PixiChart {
   }
   
   init() {
-    console.log('Initializing PixiChart with dimensions:', this.options.width, 'x', this.options.height);
+    // console.log('Initializing PixiChart with dimensions:', this.options.width, 'x', this.options.height);
     
     // 创建PIXI应用
     this.app = new PIXI.Application({
@@ -78,13 +78,13 @@ export class PixiChart {
       autoDensity: true
     });
     
-    console.log('PIXI Application created');
+    // console.log('PIXI Application created');
     
     // 使用canvas而不是view (Pixi.js 7.x兼容性)
     const canvas = this.app.canvas || this.app.view;
     this.container.appendChild(canvas);
     
-    console.log('Canvas added to container');
+    // console.log('Canvas added to container');
     
     // 创建容器
     this.gridContainer = new PIXI.Container();
@@ -144,7 +144,7 @@ export class PixiChart {
     // 初始化绘制
     this.drawGrid();
     
-    console.log('PixiChart initialization complete');
+    // console.log('PixiChart initialization complete');
   }
   
   setupInteraction() {
@@ -375,7 +375,7 @@ export class PixiChart {
         return timeDiff <= historicalThreshold;
       });
       
-      console.log(`历史数据过滤: 总数据点=${this.data.length}, 可见数据点=${visibleData.length}, 阈值=${historicalThreshold}ms`);
+      // console.log(`历史数据过滤: 总数据点=${this.data.length}, 可见数据点=${visibleData.length}, 阈值=${historicalThreshold}ms`);
     }
     
     if (visibleData.length === 0) return;
@@ -961,7 +961,6 @@ export class PixiChart {
       this.futureTimeLineGraphics.moveTo(futureX, 0);
       this.futureTimeLineGraphics.lineTo(futureX, chartHeight);
       
-      console.log(`绘制未来时间线: 当前时间=${new Date(currentTime).toLocaleTimeString()}, 未来时间=${new Date(futureTime).toLocaleTimeString()}, X坐标=${futureX.toFixed(2)}`);
     }
   }
 

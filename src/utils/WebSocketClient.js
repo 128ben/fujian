@@ -76,7 +76,7 @@ class WebSocketClient {
   send(message) {
     if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
       this.websocket.send(message);
-      console.log('WebSocket 消息已发送:', message);
+      // console.log('WebSocket 消息已发送:', message);
     } else {
       console.error('WebSocket 尚未打开，无法发送消息。');
     }
