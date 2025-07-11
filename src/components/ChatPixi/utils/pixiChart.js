@@ -13,14 +13,14 @@ export class PixiChart {
       latestPointColor: options.latestPointColor || 0xff4444,
       textColor: options.textColor || 0xcccccc,
       latestPriceLineColor: options.latestPriceLineColor || 0xff4444, // 最新价格线颜色
-      animationDuration: options.animationDuration || 800, // 动画持续时间(ms)
+      animationDuration: options.animationDuration || 500, // 动画持续时间(ms) - 与数据更新频率协调
       animationEasing: options.animationEasing || 'easeOutCubic', // 缓动函数
       animationEnabled: options.animationEnabled || true,
       showLatestPriceLine: options.showLatestPriceLine !== false, // 默认显示最新价格线
       showHistoricalData: options.showHistoricalData !== false, // 默认显示历史数据
       historicalDataThreshold: options.historicalDataThreshold || 30000, // 历史数据时间阈值(30秒)
       enableRandomMarkers: options.enableRandomMarkers !== false, // 默认启用随机标记点
-      randomMarkerInterval: options.randomMarkerInterval || 30000, // 随机标记点间隔(30秒)
+      randomMarkerInterval: options.randomMarkerInterval || 60000, // 随机标记点间隔(60秒，实际使用时会是0-120秒的随机值)
       ...options
     };
     
@@ -54,9 +54,27 @@ export class PixiChart {
     this.priceRange = { min: 95, max: 105 }; // 初始价格范围
     this.startTime = Date.now();
     
-    // 网格更新控制
+    // 网格更新控制 - 与数据更新频率协调
     this.lastGridUpdate = 0;
-    this.gridUpdateInterval = 100; // 网格更新间隔100ms
+    this.gridUpdateInterval = 500; // 网格更新间隔500ms，与数据更新同步
+    
+    // 智能更新策略
+    this.updateStrategy = {
+      isDragging: false,
+      isZooming: false,
+      lastActivityTime: Date.now(),
+      activityThreshold: 2000 // 2秒无活动后降低更新频率
+    };
+    
+    // 性能监控
+    this.performanceMonitor = {
+      frameCount: 0,
+      lastFpsUpdate: Date.now(),
+      fps: 0,
+      gridUpdateCount: 0,
+      chartUpdateCount: 0,
+      lastPerformanceLog: Date.now()
+    };
     
     // 标记点管理
     this.markers = []; // 存储标记点数据
@@ -165,18 +183,28 @@ export class PixiChart {
     canvas.addEventListener('wheel', (e) => {
       e.preventDefault();
       const delta = e.deltaY > 0 ? 0.9 : 1.1;
+      this.updateStrategy.isZooming = true;
+      this.recordActivity();
       this.zoom(delta, e.offsetX, e.offsetY);
+      
+      // 缩放结束后重置状态
+      setTimeout(() => {
+        this.updateStrategy.isZooming = false;
+      }, 200);
     });
     
     // 鼠标拖拽
     canvas.addEventListener('mousedown', (e) => {
       this.viewState.isDragging = true;
+      this.updateStrategy.isDragging = true;
+      this.recordActivity();
       this.viewState.lastMouseX = e.offsetX;
       this.viewState.lastMouseY = e.offsetY;
     });
     
     canvas.addEventListener('mousemove', (e) => {
       if (this.viewState.isDragging) {
+        this.recordActivity();
         const deltaX = e.offsetX - this.viewState.lastMouseX;
         const deltaY = e.offsetY - this.viewState.lastMouseY;
         
@@ -197,10 +225,12 @@ export class PixiChart {
     
     canvas.addEventListener('mouseup', () => {
       this.viewState.isDragging = false;
+      this.updateStrategy.isDragging = false;
     });
     
     canvas.addEventListener('mouseleave', () => {
       this.viewState.isDragging = false;
+      this.updateStrategy.isDragging = false;
     });
   }
 
@@ -655,16 +685,30 @@ export class PixiChart {
     }
   }
   
+  // 网格更新控制 - 降低更新频率以提高性能
   update() {
+    // 性能监控
+    this.performanceMonitor.frameCount++;
+    const currentTime = Date.now();
+    
+    // 计算FPS
+    if (currentTime - this.performanceMonitor.lastFpsUpdate > 1000) {
+      this.performanceMonitor.fps = this.performanceMonitor.frameCount;
+      this.performanceMonitor.frameCount = 0;
+      this.performanceMonitor.lastFpsUpdate = currentTime;
+    }
+    
     // 更新动画状态
     const wasAnimating = this.animationState.isAnimating;
     this.updateAnimation();
     
-    // 网格更新控制 - 降低更新频率以提高性能
-    const currentTime = Date.now();
-    if (currentTime - this.lastGridUpdate > this.gridUpdateInterval) {
+    // 智能网格更新控制 - 根据活动状态调整更新频率
+    const gridUpdateInterval = this.getOptimalGridUpdateInterval();
+    
+    if (currentTime - this.lastGridUpdate > gridUpdateInterval) {
       this.drawGrid();
       this.lastGridUpdate = currentTime;
+      this.performanceMonitor.gridUpdateCount++;
     }
     
     // 优化重绘策略：只在必要时重绘图表
@@ -682,6 +726,7 @@ export class PixiChart {
     // 只在需要时重绘图表
     if (needsRedraw) {
       this.drawChart();
+      this.performanceMonitor.chartUpdateCount++;
     }
     
     // 脉冲效果独立更新（轻量级操作）
@@ -701,6 +746,62 @@ export class PixiChart {
     }
 
     this.drawFutureTimeLine();
+    
+    // 定期输出性能日志
+    if (currentTime - this.performanceMonitor.lastPerformanceLog > 10000) { // 每10秒输出一次
+      this.logPerformanceStats();
+      this.performanceMonitor.lastPerformanceLog = currentTime;
+    }
+  }
+  
+  // 输出性能统计
+  logPerformanceStats() {
+    const stats = {
+      fps: this.performanceMonitor.fps,
+      gridUpdates: this.performanceMonitor.gridUpdateCount,
+      chartUpdates: this.performanceMonitor.chartUpdateCount,
+      dataPoints: this.data.length,
+      markers: this.markers.length,
+      currentGridInterval: this.getOptimalGridUpdateInterval(),
+      isAnimating: this.animationState.isAnimating,
+      isDragging: this.updateStrategy.isDragging,
+      isZooming: this.updateStrategy.isZooming
+    };
+    
+    console.log('📊 PixiChart性能统计:', stats);
+    
+    // 重置计数器
+    this.performanceMonitor.gridUpdateCount = 0;
+    this.performanceMonitor.chartUpdateCount = 0;
+  }
+  
+  // 智能获取最优网格更新间隔
+  getOptimalGridUpdateInterval() {
+    const currentTime = Date.now();
+    const timeSinceLastActivity = currentTime - this.updateStrategy.lastActivityTime;
+    
+    // 如果正在拖拽或缩放，使用高频更新
+    if (this.updateStrategy.isDragging || this.updateStrategy.isZooming) {
+      return 100; // 100ms高频更新
+    }
+    
+    // 如果有动画正在进行，使用中频更新
+    if (this.animationState.isAnimating) {
+      return 250; // 250ms中频更新
+    }
+    
+    // 如果最近有活动，使用标准频率
+    if (timeSinceLastActivity < this.updateStrategy.activityThreshold) {
+      return 500; // 500ms标准频率
+    }
+    
+    // 静态状态，使用低频更新
+    return 1000; // 1000ms低频更新
+  }
+  
+  // 记录用户活动
+  recordActivity() {
+    this.updateStrategy.lastActivityTime = Date.now();
   }
   
   // 重置视图状态
@@ -1456,17 +1557,19 @@ export class PixiChart {
     // 清除现有定时器
     this.stopRandomMarkerTimer();
 
-    console.log(`启动随机标记点定时器，间隔: ${this.options.randomMarkerInterval}ms`);
+    // 生成随机间隔（0到2分钟之间）
+    const randomInterval = Math.floor(Math.random() * 120000); // 0到120000毫秒（2分钟）
+    console.log(`启动随机标记点定时器，随机间隔: ${randomInterval}ms (${(randomInterval/1000).toFixed(1)}秒)`);
     
-    this.randomMarkerTimer = setInterval(() => {
+    this.randomMarkerTimer = setTimeout(() => {
       this.generateRandomMarker();
-    }, this.options.randomMarkerInterval);
+    }, randomInterval);
   }
 
   // 停止随机标记点定时器
   stopRandomMarkerTimer() {
     if (this.randomMarkerTimer) {
-      clearInterval(this.randomMarkerTimer);
+      clearTimeout(this.randomMarkerTimer);
       this.randomMarkerTimer = null;
       console.log('随机标记点定时器已停止');
     }
@@ -1477,6 +1580,8 @@ export class PixiChart {
     // 检查是否有足够的数据点来生成标记点
     if (this.data.length === 0) {
       console.log('没有折线图数据，跳过随机标记点生成');
+      // 重新启动定时器，继续等待下一次生成
+      this.startRandomMarkerTimer();
       return;
     }
 
@@ -1530,6 +1635,9 @@ export class PixiChart {
     } else {
       console.warn('随机标记点生成失败');
     }
+    
+    // 重新启动定时器，设置下一次随机间隔
+    this.startRandomMarkerTimer();
   }
 
   // 启用/禁用随机标记点

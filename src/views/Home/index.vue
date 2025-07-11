@@ -117,11 +117,11 @@
             :realTimeData="chartRealTimeData"
             :currentPriceData="placeOrderForm.buyAmount"
             :useExternalData="true"
-            :renderDelay="1000"
+            :renderDelay="TIMING_CONFIG.RENDER_DELAY"
             :dataSourceId="placeOrderForm.type"
             :markerPoints="markerPoints"
             :enableRandomMarkers="true"
-            :randomMarkerInterval="30000"
+            :randomMarkerInterval="getRandomMarkerInterval()"
             @markersRemoved="handleMarkersRemoved"
           />
       </div>
@@ -380,6 +380,17 @@ import { useUserStore } from "@/store/useUserStore";
 import { useRouter, useRoute } from "vue-router";
 import LoginPop from "@/views/Login/index.vue";
 import { useI18n } from "vue-i18n";
+
+// 统一的时间配置 - 确保各组件更新频率协调一致
+const TIMING_CONFIG = {
+  DATA_UPDATE_INTERVAL: 500,    // 数据更新间隔
+  ANIMATION_DURATION: 500,      // 动画持续时间
+  GRID_UPDATE_INTERVAL: 500,    // 网格更新间隔
+  RENDER_DELAY: 1000,          // 渲染延迟
+  CHART_BUFFER_UPDATE: 500,    // 图表缓冲区更新间隔
+  WEBSOCKET_THROTTLE: 400      // WebSocket数据节流间隔
+};
+
 defineOptions({
   name: 'ChartPage'
 });
@@ -687,7 +698,7 @@ function createWebSocket() { //数据获取
               }, 900)
             }
           } else {
-            if (prev && new Date().getTime() - prev > 400) {
+            if (prev && new Date().getTime() - prev > TIMING_CONFIG.WEBSOCKET_THROTTLE) {
               // console.log(`添加${d.chain}实时数据到图表:`, {
               //   timestamp: d.ts,
               //   price: Number(d.idxPx),
@@ -1374,7 +1385,7 @@ function addDataToChartBuffer(dataPoint) {
   // });
   // console.log('当前缓冲区大小:', chartDataBuffer.value.length);
   
-  // 每隔500ms批量更新图表数据
+  // 使用统一的时间配置进行批量更新
   if (!window.chartUpdateTimer) {
     window.chartUpdateTimer = setInterval(() => {
       if (chartDataBuffer.value.length > 0) {
@@ -1384,7 +1395,7 @@ function addDataToChartBuffer(dataPoint) {
         // 清空缓冲区
         chartDataBuffer.value = [];
       }
-    }, 500);
+    }, TIMING_CONFIG.CHART_BUFFER_UPDATE);
   }
 }
 
@@ -1408,6 +1419,12 @@ const handleMarkersRemoved = (removedMarkerIds) => {
   markerPoints.value = markerPoints.value.filter(marker => !removedMarkerIds.includes(marker.id));
   console.log(`已从markerPoints中移除 ${removedMarkerIds.length} 个标记点，剩余 ${markerPoints.value.length} 个`);
 };
+
+function getRandomMarkerInterval() {
+  // 返回一个固定值，实际的随机间隔逻辑在pixiChart.js中实现
+  // 这个值不会被使用，因为pixiChart.js会自己生成随机间隔
+  return 60000; // 60秒作为占位符
+}
 </script>
 <style lang="scss" scoped>
 .page-box {

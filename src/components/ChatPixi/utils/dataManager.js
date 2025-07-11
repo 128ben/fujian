@@ -17,6 +17,13 @@ export class PriceDataManager {
     this.frequencyInterval = setInterval(() => this.updateFrequencyStats(), 1000);
     this.lastPrice = null;
     
+    // 协调的更新频率配置
+    this.updateConfig = {
+      renderDelay: renderDelay,
+      checkInterval: 500, // 固定500ms检查间隔，与网格更新同步
+      batchSize: 10 // 批处理大小
+    };
+    
     this.startRenderLoop();
   }
   
@@ -47,10 +54,10 @@ export class PriceDataManager {
   }
   
   startRenderLoop() {
-    const checkInterval = Math.min(this.renderDelay / 2, 500);
+    // 使用固定的检查间隔，与其他组件协调
     this.renderTimer = setInterval(() => {
       this.processQueuedData();
-    }, checkInterval);
+    }, this.updateConfig.checkInterval);
   }
   
   processQueuedData() {
@@ -61,21 +68,27 @@ export class PriceDataManager {
     try {
       const now = Date.now();
       const dataToRender = [];
+      let processedCount = 0;
       
-      while (this.dataQueue.length > 0) {
+      // 批量处理数据，避免一次处理过多数据
+      while (this.dataQueue.length > 0 && processedCount < this.updateConfig.batchSize) {
         const oldestData = this.dataQueue[0];
         const dataAge = now - oldestData.receivedAt;
         
-        if (dataAge >= this.renderDelay) {
+        if (dataAge >= this.updateConfig.renderDelay) {
           dataToRender.push(this.dataQueue.shift());
+          processedCount++;
         } else {
           break;
         }
       }
       
-      dataToRender.forEach(dataPoint => {
-        this.renderData(dataPoint);
-      });
+      // 批量渲染数据
+      if (dataToRender.length > 0) {
+        dataToRender.forEach(dataPoint => {
+          this.renderData(dataPoint);
+        });
+      }
       
     } finally {
       this.isProcessing = false;
@@ -168,6 +181,7 @@ export class PriceDataManager {
   
   setRenderDelay(newDelay) {
     this.renderDelay = newDelay;
+    this.updateConfig.renderDelay = newDelay;
     
     if (this.renderTimer) {
       clearInterval(this.renderTimer);

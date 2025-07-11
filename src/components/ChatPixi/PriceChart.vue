@@ -118,7 +118,7 @@ const props = defineProps({
   },
   randomMarkerInterval: {
     type: Number,
-    default: 30000 // 30秒
+    default: 60000 // 默认60秒，但实际使用时会是0-120秒的随机值
   }
 });
 
@@ -284,7 +284,7 @@ function initializeChart() {
     lineColor: 0x00aaff,
     pointColor: 0xffffff,
     latestPointColor: 0xff4444,
-    animationDuration: 400,
+    animationDuration: 500, // 与数据更新频率协调
     animationEnabled: false,
     enableRandomMarkers: props.enableRandomMarkers,
     randomMarkerInterval: props.randomMarkerInterval,
