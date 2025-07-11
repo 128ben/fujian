@@ -21,6 +21,8 @@ export class PixiChart {
       historicalDataThreshold: options.historicalDataThreshold || 30000, // 历史数据时间阈值(30秒)
       enableRandomMarkers: options.enableRandomMarkers !== false, // 默认启用随机标记点
       randomMarkerInterval: options.randomMarkerInterval || 60000, // 随机标记点间隔(60秒，实际使用时会是0-120秒的随机值)
+      onLoadMoreHistory: options.onLoadMoreHistory || null, // 加载更多历史数据的回调函数
+      onReturnToLatest: options.onReturnToLatest || null, // 返回最新位置的回调函数
       ...options
     };
     
@@ -32,7 +34,9 @@ export class PixiChart {
       scaleY: 1,
       isDragging: false,
       dragStart: { x: 0, y: 0 },
-      hasUserDraggedLeft: false // 新增：用户是否向左拖动过
+      hasUserDraggedLeft: false, // 新增：用户是否向左拖动过
+      isAtLatestPosition: true, // 新增：是否在最新位置
+      dragDistance: 0 // 新增：拖动距离累计
     };
     
     // 动画状态管理
@@ -85,6 +89,12 @@ export class PixiChart {
     // 随机标记点管理
     this.randomMarkerTimer = null;
     this.randomMarkerCounter = 0;
+    
+    // 历史数据加载管理
+    this.historyLoadThreshold = 200; // 向左拖动超过200像素时加载历史数据
+    this.isLoadingHistory = false; // 是否正在加载历史数据
+    this.lastHistoryLoadTime = 0; // 上次加载历史数据的时间
+    this.historyLoadCooldown = 2000; // 历史数据加载冷却时间（2秒）
     
     this.init();
   }
@@ -264,9 +274,19 @@ export class PixiChart {
         this.viewState.offsetX += deltaX;
         // this.viewState.offsetY += deltaY; // 注释掉y轴拖拽
         
+        // 累计拖动距离
+        this.viewState.dragDistance += Math.abs(deltaX);
+        
         // 检查用户是否向左拖动（查看历史数据）
         if (deltaX > 0) {
           this.viewState.hasUserDraggedLeft = true;
+          this.viewState.isAtLatestPosition = false;
+          
+          // 检查是否需要加载更多历史数据
+          this.checkAndLoadMoreHistory();
+        } else if (deltaX < 0) {
+          // 向右拖动，检查是否接近最新位置
+          this.checkIfNearLatestPosition();
         }
         
         this.viewState.lastMouseX = e.offsetX;
@@ -1429,23 +1449,14 @@ export class PixiChart {
           }
         }
         
-        // 简化的标记点样式 - 只画一个小圆点
-        // 根据缩放级别调整标记点大小，确保在不同缩放下都清晰可见
-        const baseDotSize = marker.size || 4; // 基础大小
-        const scaleFactor = Math.max(0.5, Math.min(2, 1 / this.viewState.scaleX)); // 反向缩放因子，限制在0.5-2倍之间
-        const dotSize = baseDotSize * scaleFactor;
-        
-        // 绘制主体圆点，根据买涨买跌使用不同颜色
-        this.markerGraphics.beginFill(marker.color, 1);
-        this.markerGraphics.drawCircle(x, y, dotSize);
-        this.markerGraphics.endFill();
-        
-        // 绘制白色边框，使其在图表上更突出
-        // 边框粗细也根据缩放调整
-        const borderWidth = Math.max(0.5, 1 * scaleFactor);
-        this.markerGraphics.lineStyle(borderWidth, 0xffffff, 0.8);
-        this.markerGraphics.drawCircle(x, y, dotSize);
-        this.markerGraphics.lineStyle(0); // 重置线条样式
+        // 根据标记点类型绘制不同的图标
+        if (marker.isRandom && marker.isExpandable) {
+          // 随机标记点 - 绘制头像
+          this.drawAvatarMarker(x, y, marker);
+        } else {
+          // 用户下单标记点 - 保持原有的圆点样式
+          this.drawCircleMarker(x, y, marker);
+        }
 
         // 添加金额标签和name标签（如果是可展开的标记点）
         if (marker.amount && marker.amount > 0) {
@@ -1466,7 +1477,7 @@ export class PixiChart {
           const amountLabel = new PIXI.Text(amountText, textStyle);
           
           // 计算标签位置 - 在标记点上方
-          const labelOffsetY = dotSize + 15; // 标签距离标记点的垂直距离
+          const labelOffsetY = (marker.isRandom ? 15 : 10) + 15; // 头像需要更大的偏移，从20减小到15
           amountLabel.x = x - amountLabel.width / 2; // 水平居中
           amountLabel.y = y - labelOffsetY; // 在标记点上方
           
@@ -1495,7 +1506,7 @@ export class PixiChart {
             }
             
             if (nameLabel.y < 0) {
-              nameLabel.y = y + dotSize + 25; // 如果上方超出，则显示在下方
+              nameLabel.y = y + (marker.isRandom ? 15 : 10) + 25; // 如果上方超出，则显示在下方，从20减小到15
             }
             
             this.markerTextContainer.addChild(nameLabel);
@@ -1532,22 +1543,11 @@ export class PixiChart {
             }
             
             if (amountLabel.y < 0) {
-              amountLabel.y = y + dotSize + 5; // 如果上方超出，则显示在下方
+              amountLabel.y = y + (marker.isRandom ? 15 : 10) + 5; // 如果上方超出，则显示在下方，从20减小到15
             }
             
             this.markerTextContainer.addChild(amountLabel);
           }
-        }
-
-        // 如果是可展开的标记点，在标记点上添加一个小的展开指示器
-        if (marker.isExpandable) {
-          const indicatorSize = 2;
-          const indicatorColor = marker.isExpanded ? 0xffffff : 0x888888;
-          
-          // 绘制展开指示器（小圆点）
-          this.markerGraphics.beginFill(indicatorColor, 1);
-          this.markerGraphics.drawCircle(x + dotSize + 3, y - dotSize - 3, indicatorSize);
-          this.markerGraphics.endFill();
         }
 
         // 绘制标记点对应的竖线
@@ -1566,6 +1566,148 @@ export class PixiChart {
         this.markerLines.set(marker.id, lineGraphics);
       }
     });
+  }
+
+  // 绘制头像标记点（用于随机标记点）
+  drawAvatarMarker(x, y, marker) {
+    // 根据缩放级别调整头像大小 - 减小基础大小
+    const scaleFactor = Math.max(0.5, Math.min(2, 1 / this.viewState.scaleX));
+    const avatarSize = 12 * scaleFactor; // 从16减小到12，头像更小
+    
+    // 绘制头像阴影
+    this.markerGraphics.beginFill(0x000000, 0.3); // 半透明黑色阴影
+    this.markerGraphics.drawCircle(x + 1.5, y + 1.5, avatarSize);
+    this.markerGraphics.endFill();
+    
+    // 绘制头像背景圆圈
+    this.markerGraphics.beginFill(0xffffff, 1); // 白色背景
+    this.markerGraphics.drawCircle(x, y, avatarSize);
+    this.markerGraphics.endFill();
+    
+    // 绘制头像边框（根据买涨买跌使用不同颜色）
+    const borderWidth = Math.max(1.5, 2 * scaleFactor); // 稍微减小边框宽度
+    this.markerGraphics.lineStyle(borderWidth, marker.color, 1);
+    this.markerGraphics.drawCircle(x, y, avatarSize);
+    this.markerGraphics.lineStyle(0);
+    
+    // 绘制简化的头像图标（人脸）
+    const faceSize = avatarSize * 0.7;
+    
+    // 根据买涨买跌使用不同的头像颜色
+    const faceColor = marker.type === 'buy' ? 0x4CAF50 : 0xF44336; // 绿色买涨，红色买跌
+    
+    // 绘制头部
+    this.markerGraphics.beginFill(faceColor, 1);
+    this.markerGraphics.drawCircle(x, y - faceSize * 0.25, faceSize * 0.35);
+    this.markerGraphics.endFill();
+    
+    // 绘制身体
+    this.markerGraphics.beginFill(faceColor, 1);
+    this.markerGraphics.drawRoundedRect(
+      x - faceSize * 0.25, 
+      y + faceSize * 0.15, 
+      faceSize * 0.5, 
+      faceSize * 0.35, 
+      faceSize * 0.08
+    );
+    this.markerGraphics.endFill();
+    
+    // 绘制眼睛
+    const eyeSize = faceSize * 0.08; // 稍微增大眼睛相对大小，保持可见性
+    this.markerGraphics.beginFill(0xffffff, 1);
+    this.markerGraphics.drawCircle(x - faceSize * 0.12, y - faceSize * 0.35, eyeSize);
+    this.markerGraphics.drawCircle(x + faceSize * 0.12, y - faceSize * 0.35, eyeSize);
+    this.markerGraphics.endFill();
+    
+    // 绘制瞳孔
+    const pupilSize = eyeSize * 0.6;
+    this.markerGraphics.beginFill(0x333333, 1);
+    this.markerGraphics.drawCircle(x - faceSize * 0.12, y - faceSize * 0.35, pupilSize);
+    this.markerGraphics.drawCircle(x + faceSize * 0.12, y - faceSize * 0.35, pupilSize);
+    this.markerGraphics.endFill();
+    
+    // 绘制嘴巴（微笑）
+    this.markerGraphics.lineStyle(Math.max(1, 1.5 * scaleFactor), 0xffffff, 1);
+    this.markerGraphics.arc(x, y - faceSize * 0.15, faceSize * 0.12, 0.2, Math.PI - 0.2);
+    this.markerGraphics.lineStyle(0);
+    
+    // 添加头发/帽子装饰
+    this.markerGraphics.beginFill(0x8B4513, 1); // 棕色头发
+    this.markerGraphics.drawEllipse(x, y - faceSize * 0.45, faceSize * 0.3, faceSize * 0.15);
+    this.markerGraphics.endFill();
+    
+    // 如果是可展开的标记点，在头像上添加一个小的展开指示器
+    if (marker.isExpandable) {
+      const indicatorSize = 3 * scaleFactor; // 从4减小到3
+      const indicatorX = x + avatarSize * 0.6;
+      const indicatorY = y - avatarSize * 0.6;
+      
+      // 绘制指示器背景
+      this.markerGraphics.beginFill(0xffffff, 1);
+      this.markerGraphics.drawCircle(indicatorX, indicatorY, indicatorSize);
+      this.markerGraphics.endFill();
+      
+      // 绘制指示器边框
+      this.markerGraphics.lineStyle(1, marker.color, 1);
+      this.markerGraphics.drawCircle(indicatorX, indicatorY, indicatorSize);
+      this.markerGraphics.lineStyle(0);
+      
+      // 在指示器上绘制小图标
+      const iconSize = indicatorSize * 0.5;
+      this.markerGraphics.beginFill(marker.color, 1);
+      
+      if (marker.isExpanded) {
+        // 展开状态：绘制减号
+        this.markerGraphics.drawRect(
+          indicatorX - iconSize, 
+          indicatorY - iconSize * 0.2, 
+          iconSize * 2, 
+          iconSize * 0.4
+        );
+      } else {
+        // 收起状态：绘制加号
+        this.markerGraphics.drawRect(
+          indicatorX - iconSize, 
+          indicatorY - iconSize * 0.2, 
+          iconSize * 2, 
+          iconSize * 0.4
+        );
+        this.markerGraphics.drawRect(
+          indicatorX - iconSize * 0.2, 
+          indicatorY - iconSize, 
+          iconSize * 0.4, 
+          iconSize * 2
+        );
+      }
+      this.markerGraphics.endFill();
+    }
+    
+    // 添加光晕效果（当点击时）
+    if (marker.isExpanded) {
+      this.markerGraphics.lineStyle(2, 0xFFD700, 0.6); // 金色光晕
+      this.markerGraphics.drawCircle(x, y, avatarSize + 2); // 从+3减小到+2
+      this.markerGraphics.lineStyle(0);
+    }
+  }
+
+  // 绘制圆点标记点（用于用户下单标记点）
+  drawCircleMarker(x, y, marker) {
+    // 根据缩放级别调整标记点大小，确保在不同缩放下都清晰可见
+    const baseDotSize = marker.size || 4; // 基础大小
+    const scaleFactor = Math.max(0.5, Math.min(2, 1 / this.viewState.scaleX)); // 反向缩放因子，限制在0.5-2倍之间
+    const dotSize = baseDotSize * scaleFactor;
+    
+    // 绘制主体圆点，根据买涨买跌使用不同颜色
+    this.markerGraphics.beginFill(marker.color, 1);
+    this.markerGraphics.drawCircle(x, y, dotSize);
+    this.markerGraphics.endFill();
+    
+    // 绘制白色边框，使其在图表上更突出
+    // 边框粗细也根据缩放调整
+    const borderWidth = Math.max(0.5, 1 * scaleFactor);
+    this.markerGraphics.lineStyle(borderWidth, 0xffffff, 0.8);
+    this.markerGraphics.drawCircle(x, y, dotSize);
+    this.markerGraphics.lineStyle(0); // 重置线条样式
   }
 
   // 验证点是否在折线上（或接近折线）
@@ -1636,6 +1778,15 @@ export class PixiChart {
       const markerX = this.timeToX(marker.timestamp, currentTime, chartWidth);
       const markerY = this.priceToY(marker.price);
       
+      // 根据标记点类型调整检测范围
+      let detectionRadius = tolerance;
+      if (marker.isRandom && marker.isExpandable) {
+        // 头像标记点需要更大的检测范围 - 调整为更小的头像大小
+        const scaleFactor = Math.max(0.5, Math.min(2, 1 / this.viewState.scaleX));
+        const avatarSize = 12 * scaleFactor; // 从16减小到12，与头像大小保持一致
+        detectionRadius = Math.max(tolerance, avatarSize + 3); // 头像大小 + 3像素缓冲
+      }
+      
       const distance = Math.sqrt(Math.pow(x - markerX, 2) + Math.pow(y - markerY, 2));
       
       console.log('检查标记点:', {
@@ -1643,12 +1794,14 @@ export class PixiChart {
         markerX: markerX.toFixed(2),
         markerY: markerY.toFixed(2),
         distance: distance.toFixed(2),
-        tolerance,
-        isWithinTolerance: distance <= tolerance,
-        isExpandable: marker.isExpandable
+        detectionRadius: detectionRadius.toFixed(2),
+        isWithinTolerance: distance <= detectionRadius,
+        isExpandable: marker.isExpandable,
+        isRandom: marker.isRandom,
+        markerType: marker.isRandom ? '头像' : '圆点'
       });
       
-      return distance <= tolerance;
+      return distance <= detectionRadius;
     });
     
     console.log('找到的标记点:', foundMarker);
@@ -1822,5 +1975,212 @@ export class PixiChart {
       isRunning: this.randomMarkerTimer !== null,
       generatedCount: this.randomMarkerCounter
     };
+  }
+  
+  // 检查并加载更多历史数据
+  checkAndLoadMoreHistory() {
+    // 检查是否满足加载条件
+    if (this.isLoadingHistory) {
+      return; // 正在加载中，跳过
+    }
+    
+    const currentTime = Date.now();
+    if (currentTime - this.lastHistoryLoadTime < this.historyLoadCooldown) {
+      return; // 冷却时间未到，跳过
+    }
+    
+    // 检查拖动距离是否超过阈值
+    if (this.viewState.dragDistance < this.historyLoadThreshold) {
+      return; // 拖动距离不够，跳过
+    }
+    
+    // 检查当前视图是否已经显示了足够的历史数据
+    const visibleTimeRange = this.timeRange / this.viewState.scaleX;
+    const currentViewStartTime = Date.now() - visibleTimeRange * 0.75 + (this.viewState.offsetX / this.viewState.scaleX / this.options.width * this.timeRange);
+    
+    // 如果当前数据的最早时间距离视图开始时间太近，则需要加载更多历史数据
+    if (this.data.length > 0) {
+      const earliestDataTime = Math.min(...this.data.map(d => d.timestamp));
+      const timeGap = currentViewStartTime - earliestDataTime;
+      
+      if (timeGap < 30000) { // 如果时间间隔小于30秒，加载更多历史数据
+        this.loadMoreHistoryData();
+      }
+    }
+  }
+  
+  // 加载更多历史数据
+  loadMoreHistoryData() {
+    if (this.isLoadingHistory || !this.options.onLoadMoreHistory) {
+      return;
+    }
+    
+    this.isLoadingHistory = true;
+    this.lastHistoryLoadTime = Date.now();
+    this.viewState.dragDistance = 0; // 重置拖动距离
+    
+    console.log('触发加载更多历史数据');
+    
+    // 调用外部提供的历史数据加载回调
+    if (typeof this.options.onLoadMoreHistory === 'function') {
+      const earliestTime = this.data.length > 0 ? Math.min(...this.data.map(d => d.timestamp)) : Date.now();
+      this.options.onLoadMoreHistory(earliestTime, () => {
+        // 加载完成后的回调
+        this.isLoadingHistory = false;
+        console.log('历史数据加载完成');
+      });
+    }
+  }
+  
+  // 检查是否接近最新位置
+  checkIfNearLatestPosition() {
+    const threshold = 50; // 像素阈值
+    
+    // 如果偏移量接近0，认为接近最新位置
+    if (Math.abs(this.viewState.offsetX) < threshold) {
+      if (!this.viewState.isAtLatestPosition) {
+        this.viewState.isAtLatestPosition = true;
+        console.log('用户回到最新位置');
+        
+        // 通知外部组件用户已回到最新位置
+        if (typeof this.options.onReturnToLatest === 'function') {
+          this.options.onReturnToLatest();
+        }
+      }
+    }
+  }
+  
+  // 回到最新位置
+  returnToLatest() {
+    console.log('执行回到最新位置');
+    
+    // 重置视图状态
+    this.viewState.offsetX = 0;
+    this.viewState.offsetY = 0;
+    this.viewState.scaleX = 1;
+    this.viewState.scaleY = 1;
+    this.viewState.hasUserDraggedLeft = false;
+    this.viewState.isAtLatestPosition = true;
+    this.viewState.dragDistance = 0;
+    
+    // 重置动画状态
+    this.animationState.isAnimating = false;
+    this.animationState.pendingAnimations = [];
+    
+    // 更新视图
+    this.updateView();
+    
+    // 通知外部组件
+    if (typeof this.options.onReturnToLatest === 'function') {
+      this.options.onReturnToLatest();
+    }
+    
+    console.log('已回到最新位置');
+  }
+  
+  // 获取当前位置状态
+  getPositionStatus() {
+    return {
+      isAtLatestPosition: this.viewState.isAtLatestPosition,
+      hasUserDraggedLeft: this.viewState.hasUserDraggedLeft,
+      offsetX: this.viewState.offsetX,
+      dragDistance: this.viewState.dragDistance,
+      isLoadingHistory: this.isLoadingHistory
+    };
+  }
+  
+  // 设置历史数据加载阈值
+  setHistoryLoadThreshold(threshold) {
+    this.historyLoadThreshold = threshold;
+    console.log(`历史数据加载阈值设置为: ${threshold}px`);
+  }
+
+  // 添加历史数据的专用方法
+  addHistoricalData(historicalDataArray) {
+    if (!Array.isArray(historicalDataArray) || historicalDataArray.length === 0) {
+      console.warn('历史数据为空或格式不正确');
+      return;
+    }
+    
+    console.log(`开始添加 ${historicalDataArray.length} 条历史数据`);
+    
+    // 对历史数据按时间戳排序
+    const sortedHistoricalData = historicalDataArray.sort((a, b) => a.timestamp - b.timestamp);
+    
+    // 获取当前数据的最早和最晚时间戳
+    const currentEarliestTime = this.data.length > 0 ? 
+      Math.min(...this.data.map(d => d.timestamp)) : Date.now();
+    const currentLatestTime = this.data.length > 0 ? 
+      Math.max(...this.data.map(d => d.timestamp)) : Date.now();
+    
+    // 分离历史数据：只添加比当前最早数据更早的数据
+    const validHistoricalData = sortedHistoricalData.filter(d => d.timestamp < currentEarliestTime);
+    const futureData = sortedHistoricalData.filter(d => d.timestamp >= currentEarliestTime && d.timestamp <= currentLatestTime);
+    
+    console.log(`有效历史数据: ${validHistoricalData.length} 条，重复数据: ${futureData.length} 条`);
+    
+    if (validHistoricalData.length === 0) {
+      console.log('没有新的历史数据需要添加');
+      return;
+    }
+    
+    // 将有效的历史数据添加到数据数组的开头
+    this.data = [...validHistoricalData, ...this.data];
+    
+    // 确保整个数据数组按时间排序
+    this.data.sort((a, b) => a.timestamp - b.timestamp);
+    
+    // 限制数据数组的大小，防止内存溢出
+    const maxDataPoints = this.timeRange * 4 / 500; // 假设每500ms一个数据点，保留4倍时间范围的数据
+    if (this.data.length > maxDataPoints) {
+      this.data = this.data.slice(-maxDataPoints);
+    }
+    
+    // 更新价格范围
+    this.updatePriceRange();
+    
+    // 重新绘制图表和网格
+    this.drawChart();
+    this.drawGrid();
+    
+    console.log(`历史数据添加完成，当前总数据点: ${this.data.length}`);
+    console.log(`数据时间范围: ${new Date(this.data[0].timestamp).toLocaleTimeString()} - ${new Date(this.data[this.data.length - 1].timestamp).toLocaleTimeString()}`);
+  }
+  
+  // 检查数据完整性的方法
+  validateDataIntegrity() {
+    if (this.data.length === 0) {
+      console.log('数据为空');
+      return true;
+    }
+    
+    // 检查时间顺序是否正确
+    let isTimeOrderCorrect = true;
+    for (let i = 1; i < this.data.length; i++) {
+      if (this.data[i].timestamp < this.data[i - 1].timestamp) {
+        console.error(`数据时间顺序错误: 索引 ${i - 1} (${new Date(this.data[i - 1].timestamp).toLocaleTimeString()}) > 索引 ${i} (${new Date(this.data[i].timestamp).toLocaleTimeString()})`);
+        isTimeOrderCorrect = false;
+      }
+    }
+    
+    if (isTimeOrderCorrect) {
+      console.log('✅ 数据时间顺序正确');
+    } else {
+      console.error('❌ 数据时间顺序存在问题');
+      // 自动修复时间顺序
+      this.data.sort((a, b) => a.timestamp - b.timestamp);
+      console.log('🔧 已自动修复数据时间顺序');
+    }
+    
+    // 检查是否有重复的时间戳
+    const timestamps = this.data.map(d => d.timestamp);
+    const uniqueTimestamps = new Set(timestamps);
+    if (timestamps.length !== uniqueTimestamps.size) {
+      console.warn(`⚠️ 发现重复时间戳: 总数据点 ${timestamps.length}, 唯一时间戳 ${uniqueTimestamps.size}`);
+    } else {
+      console.log('✅ 无重复时间戳');
+    }
+    
+    return isTimeOrderCorrect && timestamps.length === uniqueTimestamps.size;
   }
 } 

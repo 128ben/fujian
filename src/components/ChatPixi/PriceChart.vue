@@ -29,6 +29,10 @@
             {{ isDataSourceSwitching ? '切换中...' : currentDataSourceId }}
           </span>
         </span>
+        <span class="stat-item" v-if="!isAtLatestPosition">
+          <span class="label">位置:</span>
+          <span class="value history-mode">历史数据</span>
+        </span>
       </div>
       <div class="control-buttons">
         <button @click="zoomIn" class="control-btn">
@@ -55,7 +59,24 @@
           <span>🔍</span>
           <span>同步检查</span>
         </button>
+        <button @click="showDataStats" class="control-btn">
+          <span>📊</span>
+          <span>数据统计</span>
+        </button>
       </div>
+    </div>
+    
+    <!-- 回到最新位置按钮 -->
+    <div v-if="!isAtLatestPosition" class="return-to-latest-btn" @click="returnToLatest">
+      <span class="btn-icon">⏭️</span>
+      <span class="btn-text">回到最新</span>
+      <span v-if="isLoadingHistory" class="loading-indicator">📡</span>
+    </div>
+    
+    <!-- 历史数据加载指示器 -->
+    <div v-if="isLoadingHistory" class="loading-history-indicator">
+      <div class="loading-spinner"></div>
+      <span>正在加载历史数据...</span>
     </div>
     
     <!-- 图表容器 -->
@@ -137,6 +158,8 @@ const showLatestPriceLine = ref(true);
 const animationEnabled = ref(false);
 const currentDataSourceId = ref(props.dataSourceId);
 const isDataSourceSwitching = ref(false);
+const isAtLatestPosition = ref(true); // 新增：判断是否在最新位置
+const isLoadingHistory = ref(false); // 新增：判断是否正在加载历史数据
 
 const priceChangeClass = computed(() => {
   return priceChange.value > 0 ? 'price-up' : priceChange.value < 0 ? 'price-down' : '';
@@ -181,11 +204,13 @@ onMounted(async () => {
   setupDataManager();
   setupResize();
   startStatsUpdate();
+  startPositionStatusUpdate(); // 启动位置状态更新
   connectionStatus.value = 'connected';
 });
 
 onUnmounted(() => {
   cleanup();
+  stopPositionStatusUpdate(); // 清理位置状态更新
 });
 
 watch(
@@ -295,6 +320,14 @@ function initializeChart() {
     onRandomMarkerGenerated: (markerData) => {
       console.log('随机标记点生成:', markerData);
       // 可以在这里处理随机标记点生成事件，比如发送到父组件
+    },
+    onLoadMoreHistory: (earliestTime, callback) => {
+      // 历史数据加载回调
+      handleLoadMoreHistory(earliestTime, callback);
+    },
+    onReturnToLatest: () => {
+      // 回到最新位置回调
+      handleReturnToLatest();
     }
   });
 }
@@ -396,26 +429,155 @@ function resetChart() {
   updateFrequency.value = 0;
   lastPriceValue = props.currentPriceData || 100;
   connectionStatus.value = 'connected';
+  isAtLatestPosition.value = true; // 重置时回到最新位置
 }
 
 function validateSync() {
   if (pixiChart) {
-    const syncResult = pixiChart.validateGridChartSync();
-    if (syncResult) {
-      const statusMsg = syncResult.isInSync ? '✅ 网格与折线图完美同步' : '⚠️ 网格与折线图存在偏差';
-      console.log(`🔍 同步验证结果: ${statusMsg}`);
-      console.log(`时间同步误差: ${syncResult.timeSyncError.toFixed(4)}px`);
-      console.log(`价格同步误差: ${syncResult.priceSyncError.toFixed(4)}px`);
+    pixiChart.validateGridChartSync();
+  }
+}
+
+// 显示数据统计信息
+function showDataStats() {
+  if (pixiChart) {
+    const isIntegrityOk = pixiChart.validateDataIntegrity();
+    const dataStats = pixiChart.getDataStats();
+    
+    console.log('=== 📊 数据统计信息 ===');
+    console.log('数据完整性:', isIntegrityOk ? '✅ 正常' : '❌ 异常');
+    
+    if (dataStats && dataStats.totalDataPoints) {
+      console.log(`总数据点: ${dataStats.totalDataPoints}`);
+      console.log(`时间范围: ${dataStats.timeRange.start} - ${dataStats.timeRange.end}`);
+      console.log(`时间跨度: ${(dataStats.timeRange.spanMs / 1000 / 60).toFixed(1)} 分钟`);
+      console.log(`价格范围: $${dataStats.priceRange.min} - $${dataStats.priceRange.max}`);
+      console.log(`当前价格: $${dataStats.priceRange.current}`);
       
-      // 在开发环境中显示更详细的信息
-      if (process.env.NODE_ENV === 'development') {
-        alert(`同步检查结果:\n${statusMsg}\n时间误差: ${syncResult.timeSyncError.toFixed(4)}px\n价格误差: ${syncResult.priceSyncError.toFixed(4)}px`);
-      }
+      // 显示用户友好的提示
+      const message = `📊 数据统计
+总数据点: ${dataStats.totalDataPoints}
+时间跨度: ${(dataStats.timeRange.spanMs / 1000 / 60).toFixed(1)} 分钟
+价格范围: $${dataStats.priceRange.min} - $${dataStats.priceRange.max}
+当前价格: $${dataStats.priceRange.current}
+数据完整性: ${isIntegrityOk ? '正常' : '异常'}`;
+      
+      alert(message);
     } else {
-      console.log('⚠️ 无法验证同步性：没有数据点');
+      console.log('无数据可显示');
+      alert('📊 当前无数据');
     }
   } else {
-    console.log('⚠️ 无法验证同步性：图表未初始化');
+    console.warn('图表未初始化');
+    alert('⚠️ 图表未初始化');
+  }
+}
+
+// 处理历史数据加载请求
+function handleLoadMoreHistory(earliestTime, callback) {
+  console.log('请求加载更多历史数据，最早时间:', new Date(earliestTime).toLocaleString());
+  
+  isLoadingHistory.value = true;
+  
+  // 模拟历史数据加载（实际项目中应该调用API）
+  setTimeout(() => {
+    try {
+      // 生成模拟的历史数据
+      const historicalData = generateMockHistoricalData(earliestTime, 50);
+      
+      // 使用新的历史数据添加方法
+      if (pixiChart) {
+        pixiChart.addHistoricalData(historicalData);
+        
+        // 验证数据完整性
+        pixiChart.validateDataIntegrity();
+      }
+      
+      // 调用回调通知加载完成
+      if (callback) {
+        callback();
+      }
+      
+      isLoadingHistory.value = false;
+    } catch (error) {
+      console.error('历史数据加载失败:', error);
+      isLoadingHistory.value = false;
+      if (callback) {
+        callback();
+      }
+    }
+  }, 1000); // 模拟1秒的加载时间
+}
+
+// 生成模拟的历史数据
+function generateMockHistoricalData(startTime, count) {
+  const historicalData = [];
+  const interval = 500; // 500ms间隔，与实时数据保持一致
+  
+  // 确保startTime是有效的时间戳
+  const baseTime = typeof startTime === 'number' ? startTime : Date.now();
+  
+  for (let i = 0; i < count; i++) {
+    // 从startTime往前推算，生成更早的历史数据
+    const timestamp = baseTime - (count - i) * interval;
+    
+    // 生成更真实的价格变化
+    const basePrice = 100;
+    const timeOffset = timestamp / 100000; // 时间偏移影响
+    const trendComponent = Math.sin(timeOffset) * 3; // 趋势成分
+    const randomComponent = (Math.random() - 0.5) * 2; // 随机成分
+    const price = basePrice + trendComponent + randomComponent;
+    
+    historicalData.push({
+      timestamp: timestamp,
+      price: Math.max(95, Math.min(105, price)), // 限制价格在合理范围内
+      volume: Math.floor(Math.random() * 5000) + 1000, // 1000-6000的成交量
+      change: 0, // 变化率会在添加到数据管理器时计算
+      sequence: i,
+      isHistorical: true // 标记为历史数据
+    });
+  }
+  
+  console.log(`生成历史数据: ${count} 条，时间范围: ${new Date(historicalData[0].timestamp).toLocaleTimeString()} - ${new Date(historicalData[historicalData.length - 1].timestamp).toLocaleTimeString()}`);
+  
+  return historicalData;
+}
+
+// 处理回到最新位置
+function handleReturnToLatest() {
+  console.log('用户回到最新位置');
+  isAtLatestPosition.value = true;
+}
+
+// 手动回到最新位置
+function returnToLatest() {
+  if (pixiChart) {
+    pixiChart.returnToLatest();
+    isAtLatestPosition.value = true;
+    console.log('手动回到最新位置');
+  }
+}
+
+// 监听位置状态变化
+function updatePositionStatus() {
+  if (pixiChart) {
+    const status = pixiChart.getPositionStatus();
+    isAtLatestPosition.value = status.isAtLatestPosition;
+    isLoadingHistory.value = status.isLoadingHistory;
+  }
+}
+
+// 定期更新位置状态
+let positionUpdateInterval = null;
+
+function startPositionStatusUpdate() {
+  positionUpdateInterval = setInterval(updatePositionStatus, 500);
+}
+
+function stopPositionStatusUpdate() {
+  if (positionUpdateInterval) {
+    clearInterval(positionUpdateInterval);
+    positionUpdateInterval = null;
   }
 }
 
@@ -502,6 +664,8 @@ function cleanup() {
   if (pixiChart) {
     pixiChart.destroy();
   }
+  // 清理位置状态更新
+  stopPositionStatusUpdate();
 }
 
 defineExpose({
@@ -555,6 +719,74 @@ defineExpose({
     if (pixiChart) {
       pixiChart.generateRandomMarker();
     }
+  },
+  // 历史数据加载方法
+  loadHistoricalData: async (startTimestamp, endTimestamp) => {
+    if (pixiChart) {
+      isLoadingHistory.value = true;
+      try {
+        // 生成模拟的历史数据（实际项目中应该调用API）
+        const historicalData = generateMockHistoricalData(startTimestamp, 50);
+        
+        // 使用addHistoricalData方法添加历史数据
+        pixiChart.addHistoricalData(historicalData);
+        
+        // 验证数据完整性
+        pixiChart.validateDataIntegrity();
+        
+        isAtLatestPosition.value = false;
+        console.log('历史数据加载成功');
+      } catch (error) {
+        console.error('加载历史数据失败:', error);
+        alert('加载历史数据失败，请检查控制台');
+      } finally {
+        isLoadingHistory.value = false;
+      }
+    }
+  },
+  returnToLatest: () => {
+    if (pixiChart) {
+      pixiChart.returnToLatest();
+      isAtLatestPosition.value = true;
+      console.log('已回到最新位置');
+    }
+  },
+  isAtLatestPosition: () => {
+    return isAtLatestPosition.value;
+  },
+  // 数据完整性验证
+  validateDataIntegrity: () => {
+    if (pixiChart) {
+      return pixiChart.validateDataIntegrity();
+    }
+    return false;
+  },
+  // 获取数据统计信息
+  getDataStats: () => {
+    if (pixiChart) {
+      const dataLength = pixiChart.data.length;
+      if (dataLength === 0) {
+        return { message: '无数据' };
+      }
+      
+      const timestamps = pixiChart.data.map(d => d.timestamp);
+      const prices = pixiChart.data.map(d => d.price);
+      
+      return {
+        totalDataPoints: dataLength,
+        timeRange: {
+          start: new Date(Math.min(...timestamps)).toLocaleString(),
+          end: new Date(Math.max(...timestamps)).toLocaleString(),
+          spanMs: Math.max(...timestamps) - Math.min(...timestamps)
+        },
+        priceRange: {
+          min: Math.min(...prices).toFixed(2),
+          max: Math.max(...prices).toFixed(2),
+          current: prices[prices.length - 1]?.toFixed(2) || 'N/A'
+        }
+      };
+    }
+    return null;
   }
 });
 </script>
@@ -726,6 +958,74 @@ defineExpose({
   gap: 10px;
 }
 
+.return-to-latest-btn {
+  position: absolute;
+  top: 120px; /* Adjust based on control panel height */
+  right: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+  color: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s ease;
+  z-index: 10;
+  backdrop-filter: blur(10px);
+  border: 1px solid #333;
+}
+
+.return-to-latest-btn:hover {
+  background: linear-gradient(135deg, #0056b3 0%, #004085 100%);
+  transform: translateY(-1px);
+}
+
+.return-to-latest-btn .btn-icon {
+  font-size: 18px;
+}
+
+.return-to-latest-btn .btn-text {
+  font-weight: bold;
+}
+
+.loading-history-indicator {
+  position: absolute;
+  top: 120px; /* Adjust based on control panel height */
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: rgba(0, 0, 0, 0.8);
+  border-radius: 10px;
+  font-size: 14px;
+  backdrop-filter: blur(10px);
+  border: 1px solid #333;
+  z-index: 10;
+}
+
+.loading-history-indicator .loading-spinner {
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #00aaff;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  animation: spin 1s linear infinite;
+}
+
+.history-mode {
+  color: #ffa500 !important;
+  font-weight: bold;
+}
+
+.loading-indicator {
+  animation: pulse 1s infinite;
+}
+
 @keyframes pulse {
   0% {
     opacity: 1;
@@ -736,6 +1036,11 @@ defineExpose({
   100% {
     opacity: 1;
   }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 @media (max-width: 768px) {

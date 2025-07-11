@@ -123,6 +123,8 @@
           :enableRandomMarkers="true"
           :randomMarkerInterval="getRandomMarkerInterval()"
           @markersRemoved="handleMarkersRemoved"
+          @loadMoreHistory="handleLoadMoreHistory"
+          @returnToLatest="handleReturnToLatest"
         />
       </div>
     </div>
@@ -371,6 +373,14 @@
     <button @click="validateSync" class="test-btn">
       <span>🔍</span>
       <span>同步检查</span>
+    </button>
+    <button @click="testReturnToLatest" class="test-btn">
+      <span>⏭️</span>
+      <span>测试回到最新</span>
+    </button>
+    <button @click="testLoadHistory" class="test-btn">
+      <span>📊</span>
+      <span>测试加载历史</span>
     </button>
   </div>
 </template>
@@ -1456,7 +1466,54 @@ const generateTestMarker = () => {
 const validateSync = () => {
   if (priceChartRef.value) {
     priceChartRef.value.validateSync();
-    console.log('执行同步检查');
+    
+    // 额外的数据完整性检查
+    const isIntegrityOk = priceChartRef.value.validateDataIntegrity();
+    const dataStats = priceChartRef.value.getDataStats();
+    
+    console.log('=== 数据完整性检查结果 ===');
+    console.log('完整性状态:', isIntegrityOk ? '✅ 正常' : '❌ 异常');
+    console.log('数据统计:', dataStats);
+    
+    if (dataStats && dataStats.totalDataPoints) {
+      console.log(`📊 数据概览:
+        - 总数据点: ${dataStats.totalDataPoints}
+        - 时间跨度: ${(dataStats.timeRange.spanMs / 1000 / 60).toFixed(1)} 分钟
+        - 价格范围: $${dataStats.priceRange.min} - $${dataStats.priceRange.max}
+        - 当前价格: $${dataStats.priceRange.current}`);
+    }
+    
+    console.log('同步检查完成');
+  } else {
+    console.warn('PriceChart组件不可用');
+  }
+};
+
+const handleLoadMoreHistory = () => {
+  // 这里可以添加加载更多历史数据的逻辑
+  console.log('加载更多历史数据');
+};
+
+const handleReturnToLatest = () => {
+  // 这里可以添加回到最新位置的逻辑
+  console.log('回到最新位置');
+};
+
+const testReturnToLatest = () => {
+  if (priceChartRef.value) {
+    priceChartRef.value.returnToLatest();
+    console.log('测试回到最新位置');
+  } else {
+    console.warn('PriceChart组件不可用');
+  }
+};
+
+const testLoadHistory = () => {
+  if (priceChartRef.value) {
+    // 模拟向左拖动触发历史数据加载
+    const earliestTime = Date.now() - 60000; // 1分钟前
+    priceChartRef.value.loadHistoricalData(earliestTime, Date.now());
+    console.log('测试加载历史数据');
   } else {
     console.warn('PriceChart组件不可用');
   }
@@ -2590,19 +2647,37 @@ const validateSync = () => {
   display: flex;
   justify-content: space-between;
   margin-top: 20px;
+  gap: 10px;
+  flex-wrap: wrap;
 
   .test-btn {
-    background: #10C800;
+    background: linear-gradient(135deg, #10C800 0%, #0D9600 100%);
     color: #FFF;
     border: none;
-    padding: 10px 20px;
-    border-radius: 5px;
+    padding: 8px 16px;
+    border-radius: 6px;
     cursor: pointer;
-    font-size: 16px;
-    transition: background-color 0.3s ease;
+    font-size: 12px;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 120px;
+    justify-content: center;
+
+    span:first-child {
+      font-size: 16px;
+    }
 
     &:hover {
-      background-color: #0D172F;
+      background: linear-gradient(135deg, #0D9600 0%, #0A7A00 100%);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(16, 200, 0, 0.3);
+    }
+
+    &:active {
+      transform: translateY(0);
     }
   }
 }
