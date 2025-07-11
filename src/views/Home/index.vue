@@ -384,7 +384,7 @@ import { useI18n } from "vue-i18n";
 // 统一的时间配置 - 确保各组件更新频率协调一致
 const TIMING_CONFIG = {
   DATA_UPDATE_INTERVAL: 500,    // 数据更新间隔
-  ANIMATION_DURATION: 500,      // 动画持续时间
+  ANIMATION_DURATION: 300,      // 动画持续时间
   GRID_UPDATE_INTERVAL: 500,    // 网格更新间隔
   RENDER_DELAY: 1000,          // 渲染延迟
   CHART_BUFFER_UPDATE: 500,    // 图表缓冲区更新间隔
