@@ -193,8 +193,61 @@ export class PixiChart {
       }, 200);
     });
     
+    // 鼠标点击事件 - 处理标记点点击
+    canvas.addEventListener('click', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      console.log('点击事件触发:', { x, y });
+      
+      // 检查是否点击了标记点
+      const clickedMarker = this.getMarkerAt(x, y, 15); // 增加容错范围到15像素
+      
+      console.log('查找到的标记点:', clickedMarker);
+      
+      if (clickedMarker) {
+        console.log('标记点详情:', {
+          id: clickedMarker.id,
+          isExpandable: clickedMarker.isExpandable,
+          isExpanded: clickedMarker.isExpanded,
+          name: clickedMarker.name,
+          isRandom: clickedMarker.isRandom
+        });
+        
+        if (clickedMarker.isExpandable) {
+          // 切换展开状态
+          clickedMarker.isExpanded = !clickedMarker.isExpanded;
+          
+          console.log(`标记点 ${clickedMarker.id} 展开状态切换为: ${clickedMarker.isExpanded ? '展开' : '收起'}`);
+          
+          // 重新绘制标记点以显示变化
+          this.drawMarkers();
+          
+          // 阻止事件冒泡，避免触发拖拽
+          e.stopPropagation();
+          return;
+        } else {
+          console.log('标记点不可展开');
+        }
+      } else {
+        console.log('没有找到标记点');
+      }
+    });
+    
     // 鼠标拖拽
     canvas.addEventListener('mousedown', (e) => {
+      // 检查是否点击了标记点，如果是则不启动拖拽
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const clickedMarker = this.getMarkerAt(x, y, 15);
+      
+      if (clickedMarker && clickedMarker.isExpandable) {
+        // 点击了可展开的标记点，不启动拖拽
+        return;
+      }
+      
       this.viewState.isDragging = true;
       this.updateStrategy.isDragging = true;
       this.recordActivity();
@@ -1224,6 +1277,11 @@ export class PixiChart {
       size: markerData.size || 8, // 稍微增大标记点以便更清晰
       label: markerData.label || '',
       amount: markerData.amount || 0,
+      name: markerData.name || '', // 保留用户名
+      isRandom: markerData.isRandom || false, // 保留随机标记点标识
+      isExpandable: markerData.isExpandable || false, // 保留可展开标识
+      isExpanded: markerData.isExpanded || false, // 保留展开状态
+      isUserOrder: markerData.isUserOrder || false, // 保留用户下单标识
       originalTimestamp: targetTimestamp, // 保存原始时间戳用于调试
       originalPrice: targetPrice, // 保存原始价格用于调试
       timeDiff: Math.abs(bestDataPoint.timestamp - targetTimestamp) // 保存时间差用于调试
@@ -1239,7 +1297,9 @@ export class PixiChart {
       原始价格: targetPrice.toFixed(2),
       实际价格: bestDataPoint.price.toFixed(2),
       标记点类型: marker.type,
-      标记点ID: marker.id
+      标记点ID: marker.id,
+      是否可展开: marker.isExpandable,
+      用户名: marker.name
     });
     
     return marker.id;
@@ -1387,7 +1447,7 @@ export class PixiChart {
         this.markerGraphics.drawCircle(x, y, dotSize);
         this.markerGraphics.lineStyle(0); // 重置线条样式
 
-        // 添加金额标签
+        // 添加金额标签和name标签（如果是可展开的标记点）
         if (marker.amount && marker.amount > 0) {
           const amountText = `$${marker.amount}`;
           
@@ -1410,18 +1470,84 @@ export class PixiChart {
           amountLabel.x = x - amountLabel.width / 2; // 水平居中
           amountLabel.y = y - labelOffsetY; // 在标记点上方
           
-          // 确保标签在可视范围内
-          if (amountLabel.x < 0) {
-            amountLabel.x = 5;
-          } else if (amountLabel.x + amountLabel.width > chartWidth) {
-            amountLabel.x = chartWidth - amountLabel.width - 5;
+          // 如果是可展开的标记点且已展开，显示name信息
+          if (marker.isExpandable && marker.isExpanded && marker.name) {
+            // 创建name标签
+            const nameText = marker.name;
+            const nameStyle = {
+              fontFamily: 'Arial',
+              fontSize: fontSize - 2, // 稍小的字体
+              fill: 0xffffff,
+              fontWeight: 'normal',
+              stroke: 0x000000,
+              strokeThickness: 1
+            };
+            
+            const nameLabel = new PIXI.Text(nameText, nameStyle);
+            nameLabel.x = x - nameLabel.width / 2; // 水平居中
+            nameLabel.y = y - labelOffsetY - 20; // 在金额标签上方
+            
+            // 确保name标签在可视范围内
+            if (nameLabel.x < 0) {
+              nameLabel.x = 5;
+            } else if (nameLabel.x + nameLabel.width > chartWidth) {
+              nameLabel.x = chartWidth - nameLabel.width - 5;
+            }
+            
+            if (nameLabel.y < 0) {
+              nameLabel.y = y + dotSize + 25; // 如果上方超出，则显示在下方
+            }
+            
+            this.markerTextContainer.addChild(nameLabel);
+            
+            // 创建展开状态的背景框
+            const padding = 4;
+            const bgWidth = Math.max(amountLabel.width, nameLabel.width) + padding * 2;
+            const bgHeight = 40; // 包含两行文本的高度
+            
+            const bgGraphics = new PIXI.Graphics();
+            bgGraphics.beginFill(0x000000, 0.7); // 半透明黑色背景
+            bgGraphics.lineStyle(1, marker.color, 0.8); // 使用标记点颜色作为边框
+            bgGraphics.drawRoundedRect(
+              x - bgWidth / 2, 
+              y - labelOffsetY - 25, 
+              bgWidth, 
+              bgHeight, 
+              5
+            );
+            bgGraphics.endFill();
+            
+            this.markerTextContainer.addChild(bgGraphics);
+            
+            // 重新添加文本标签，确保它们在背景之上
+            this.markerTextContainer.addChild(nameLabel);
+            this.markerTextContainer.addChild(amountLabel);
+          } else {
+            // 普通显示模式或不可展开的标记点
+            // 确保标签在可视范围内
+            if (amountLabel.x < 0) {
+              amountLabel.x = 5;
+            } else if (amountLabel.x + amountLabel.width > chartWidth) {
+              amountLabel.x = chartWidth - amountLabel.width - 5;
+            }
+            
+            if (amountLabel.y < 0) {
+              amountLabel.y = y + dotSize + 5; // 如果上方超出，则显示在下方
+            }
+            
+            this.markerTextContainer.addChild(amountLabel);
           }
+        }
+
+        // 如果是可展开的标记点，在标记点上添加一个小的展开指示器
+        if (marker.isExpandable) {
+          const indicatorSize = 2;
+          const indicatorColor = marker.isExpanded ? 0xffffff : 0x888888;
           
-          if (amountLabel.y < 0) {
-            amountLabel.y = y + dotSize + 5; // 如果上方超出，则显示在下方
-          }
-          
-          this.markerTextContainer.addChild(amountLabel);
+          // 绘制展开指示器（小圆点）
+          this.markerGraphics.beginFill(indicatorColor, 1);
+          this.markerGraphics.drawCircle(x + dotSize + 3, y - dotSize - 3, indicatorSize);
+          this.markerGraphics.endFill();
         }
 
         // 绘制标记点对应的竖线
@@ -1503,14 +1629,30 @@ export class PixiChart {
     const currentTime = Date.now();
     const chartWidth = this.options.width;
     
-    return this.markers.find(marker => {
+    console.log('getMarkerAt调用:', { x, y, tolerance, markersCount: this.markers.length });
+    
+    const foundMarker = this.markers.find(marker => {
       // 使用与绘制标记点相同的坐标转换方法
       const markerX = this.timeToX(marker.timestamp, currentTime, chartWidth);
       const markerY = this.priceToY(marker.price);
       
       const distance = Math.sqrt(Math.pow(x - markerX, 2) + Math.pow(y - markerY, 2));
+      
+      console.log('检查标记点:', {
+        id: marker.id,
+        markerX: markerX.toFixed(2),
+        markerY: markerY.toFixed(2),
+        distance: distance.toFixed(2),
+        tolerance,
+        isWithinTolerance: distance <= tolerance,
+        isExpandable: marker.isExpandable
+      });
+      
       return distance <= tolerance;
     });
+    
+    console.log('找到的标记点:', foundMarker);
+    return foundMarker;
   }
 
   // 手动启用历史数据显示
@@ -1596,6 +1738,10 @@ export class PixiChart {
     const amounts = [10, 20, 30, 50, 100];
     const randomAmount = amounts[Math.floor(Math.random() * amounts.length)];
     
+    // 随机生成用户名
+    const userNames = ['Alice', 'Bob', 'Charlie', 'Diana', 'Eve', 'Frank', 'Grace', 'Henry', 'Ivy', 'Jack'];
+    const randomName = userNames[Math.floor(Math.random() * userNames.length)];
+    
     // 获取最新的数据点作为标记点位置
     const latestDataPoint = this.data[this.data.length - 1];
     
@@ -1612,7 +1758,10 @@ export class PixiChart {
       size: 4,
       label: isBuyUp ? 'Random Buy Up' : 'Random Buy Down',
       amount: randomAmount,
-      isRandom: true // 标识这是随机生成的标记点
+      name: randomName, // 添加用户名
+      isRandom: true, // 标识这是随机生成的标记点
+      isExpandable: true, // 标识这是可展开的标记点
+      isExpanded: false // 初始状态为未展开
     };
 
     // 添加标记点到图表
@@ -1624,6 +1773,7 @@ export class PixiChart {
         类型: markerType,
         方向: isBuyUp ? '买涨' : '买跌',
         金额: `$${randomAmount}`,
+        用户名: randomName,
         时间: new Date(latestDataPoint.timestamp).toLocaleTimeString(),
         价格: latestDataPoint.price.toFixed(2)
       });

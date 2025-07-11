@@ -112,18 +112,18 @@
           :minX="-leftData.length"
           :maxDataPoints="50000"
           :enablePerformanceMonitor="true" /> -->
-          <PriceChart 
-            ref="priceChartRef"
-            :realTimeData="chartRealTimeData"
-            :currentPriceData="placeOrderForm.buyAmount"
-            :useExternalData="true"
-            :renderDelay="TIMING_CONFIG.RENDER_DELAY"
-            :dataSourceId="placeOrderForm.type"
-            :markerPoints="markerPoints"
-            :enableRandomMarkers="true"
-            :randomMarkerInterval="getRandomMarkerInterval()"
-            @markersRemoved="handleMarkersRemoved"
-          />
+        <PriceChart 
+          ref="priceChartRef"
+          :realTimeData="chartRealTimeData"
+          :currentPriceData="placeOrderForm.buyAmount"
+          :useExternalData="true"
+          :renderDelay="TIMING_CONFIG.RENDER_DELAY"
+          :dataSourceId="placeOrderForm.type"
+          :markerPoints="markerPoints"
+          :enableRandomMarkers="true"
+          :randomMarkerInterval="getRandomMarkerInterval()"
+          @markersRemoved="handleMarkersRemoved"
+        />
       </div>
     </div>
     <div class="bottom-box">
@@ -361,6 +361,18 @@
   </van-dialog>
   <!-- 数字键盘 -->
   <numericKeypad :popupShow="popupShow" @change="checkmarkemptyChange" @popup_close="popupCloseNumericKeypad" />
+  
+  <!-- 测试按钮 -->
+  <div class="test-controls" v-if="userStore.token">
+    <button @click="generateTestMarker" class="test-btn">
+      <span>🎯</span>
+      <span>生成测试标记点</span>
+    </button>
+    <button @click="validateSync" class="test-btn">
+      <span>🔍</span>
+      <span>同步检查</span>
+    </button>
+  </div>
 </template>
 <script setup>
 import Vap from 'video-animation-player'
@@ -384,7 +396,7 @@ import { useI18n } from "vue-i18n";
 // 统一的时间配置 - 确保各组件更新频率协调一致
 const TIMING_CONFIG = {
   DATA_UPDATE_INTERVAL: 500,    // 数据更新间隔
-  ANIMATION_DURATION: 300,      // 动画持续时间
+  ANIMATION_DURATION: 200,      // 动画持续时间
   GRID_UPDATE_INTERVAL: 500,    // 网格更新间隔
   RENDER_DELAY: 1000,          // 渲染延迟
   CHART_BUFFER_UPDATE: 500,    // 图表缓冲区更新间隔
@@ -1029,7 +1041,10 @@ function placeOrderFun(buyType) { //买入
         color: res.data.order.buy_type === 1 ? 0x00ff00 : 0xff0000, // 绿色买涨，红色买跌
         size: 4, // 调整为小点，4像素大小
         label: res.data.order.buy_type === 1 ? 'Buy Up' : 'Buy Down',
-        amount: res.data.order.amount
+        amount: res.data.order.amount,
+        isRandom: false, // 标识这不是随机生成的标记点
+        isExpandable: false, // 标识这不是可展开的标记点
+        isUserOrder: true // 标识这是用户下单的标记点
       };
       
       // 添加到标记点数组
@@ -1425,6 +1440,27 @@ function getRandomMarkerInterval() {
   // 这个值不会被使用，因为pixiChart.js会自己生成随机间隔
   return 60000; // 60秒作为占位符
 }
+
+// 生成测试标记点
+const generateTestMarker = () => {
+  if (priceChartRef.value) {
+    // 手动触发随机标记点生成
+    priceChartRef.value.generateRandomMarker();
+    console.log('手动生成测试标记点');
+  } else {
+    console.warn('PriceChart组件不可用');
+  }
+};
+
+// 同步检查
+const validateSync = () => {
+  if (priceChartRef.value) {
+    priceChartRef.value.validateSync();
+    console.log('执行同步检查');
+  } else {
+    console.warn('PriceChart组件不可用');
+  }
+};
 </script>
 <style lang="scss" scoped>
 .page-box {
@@ -2547,6 +2583,27 @@ function getRandomMarkerInterval() {
     font-family: "Future Earth";
     font-size: 16px;
     font-weight: 400;
+  }
+}
+
+.test-controls {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20px;
+
+  .test-btn {
+    background: #10C800;
+    color: #FFF;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s ease;
+
+    &:hover {
+      background-color: #0D172F;
+    }
   }
 }
 </style>
