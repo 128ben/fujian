@@ -698,7 +698,12 @@ defineExpose({
   },
   clearMarkers: () => {
     if (pixiChart) {
-      pixiChart.clearMarkers();
+      pixiChart.clearOrderMarkers(); // 改为只清除下单标记点
+    }
+  },
+  clearAllMarkers: () => {
+    if (pixiChart) {
+      pixiChart.clearMarkers(); // 清除所有标记点，包括随机标记点
     }
   },
   // 随机标记点控制方法
