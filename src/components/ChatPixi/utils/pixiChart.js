@@ -13,7 +13,7 @@ export class PixiChart {
       latestPointColor: options.latestPointColor || 0xff4444,
       textColor: options.textColor || 0xcccccc,
       latestPriceLineColor: options.latestPriceLineColor || 0xff4444, // 最新价格线颜色
-      animationDuration: options.animationDuration || 500, // 动画持续时间(ms) - 与数据更新频率协调
+      animationDuration: options.animationDuration || 300, // 动画持续时间(ms) - 与数据更新频率协调
       animationEasing: options.animationEasing || 'easeOutCubic', // 缓动函数
       animationEnabled: options.animationEnabled || true,
       showLatestPriceLine: options.showLatestPriceLine !== false, // 默认显示最新价格线
