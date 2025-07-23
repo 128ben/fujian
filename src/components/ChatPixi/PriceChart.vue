@@ -77,18 +77,6 @@
           <span>🎬</span>
           <span>动画</span>
         </button>
-        <button @click="resetChart" class="control-btn">
-          <span>🔄</span>
-          <span>重置</span>
-        </button>
-        <button @click="validateSync" class="control-btn">
-          <span>🔍</span>
-          <span>同步检查</span>
-        </button>
-        <button @click="showDataStats" class="control-btn">
-          <span>📊</span>
-          <span>数据统计</span>
-        </button>
       </div>
     </div>
     
@@ -108,12 +96,7 @@
     <!-- 图表容器 -->
     <div class="chart-container" ref="chartContainer"></div>
     
-    <!-- 连接状态指示器 -->
-    <div class="connection-status" :class="connectionStatus">
-      <div class="status-dot"></div>
-      <span>{{ connectionStatusText }}</span>
-      <span class="delay-info">延迟1秒渲染</span>
-    </div>
+
     
     <!-- 数据详情浮窗 -->
     <div v-if="hoveredData" class="data-tooltip" :style="tooltipStyle">

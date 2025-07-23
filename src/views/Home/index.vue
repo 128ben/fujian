@@ -364,25 +364,7 @@
   <!-- 数字键盘 -->
   <numericKeypad :popupShow="popupShow" @change="checkmarkemptyChange" @popup_close="popupCloseNumericKeypad" />
   
-  <!-- 测试按钮 -->
-  <div class="test-controls" v-if="userStore.token">
-    <button @click="generateTestMarker" class="test-btn">
-      <span>🎯</span>
-      <span>生成测试标记点</span>
-    </button>
-    <button @click="validateSync" class="test-btn">
-      <span>🔍</span>
-      <span>同步检查</span>
-    </button>
-    <button @click="testReturnToLatest" class="test-btn">
-      <span>⏭️</span>
-      <span>测试回到最新</span>
-    </button>
-    <button @click="testLoadHistory" class="test-btn">
-      <span>📊</span>
-      <span>测试加载历史</span>
-    </button>
-  </div>
+
 </template>
 <script setup>
 import Vap from 'video-animation-player'
