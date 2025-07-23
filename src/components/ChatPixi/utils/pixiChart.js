@@ -1055,10 +1055,41 @@ export class PixiChart {
     };
     
     const width = this.options.width;
+    const height = this.options.height;
     
     this.latestPriceLineGraphics.clear();
     
-    // 使用与折线相同的颜色绘制价格线
+    // 创建渐变效果区域
+    const gradientHeight = 50; // 渐变区域高度
+    
+    // 绘制上方绿色渐变（从上往下，从透明到绿色）
+    const topGradientY = Math.max(0, animatedY - gradientHeight);
+    const topGradientHeight = animatedY - topGradientY;
+    
+    if (topGradientHeight > 0) {
+      // 使用多条半透明线条模拟渐变效果 - 从上往下，透明度递增
+      for (let i = 0; i < topGradientHeight; i += 0.5) {
+        const alpha = ((topGradientHeight - i) / topGradientHeight) * 0.15; // 从0.15到0的渐变（从上往下透明度递减，即从上往下从透明到绿色）
+        this.latestPriceLineGraphics.lineStyle(1, 0x00ff00, alpha);
+        this.latestPriceLineGraphics.moveTo(0, animatedY - i);
+        this.latestPriceLineGraphics.lineTo(width, animatedY - i);
+      }
+    }
+    
+    // 绘制下方红色渐变（从下往上，从透明到红色）
+    const bottomGradientHeight = Math.min(gradientHeight, height - animatedY);
+    
+    if (bottomGradientHeight > 0) {
+      // 使用多条半透明线条模拟渐变效果 - 从下往上，透明度递增
+      for (let i = 0; i < bottomGradientHeight; i += 0.5) {
+        const alpha = ((bottomGradientHeight - i) / bottomGradientHeight) * 0.15; // 从0.15到0的渐变（从上往下透明度递减，即从下往上透明度递增）
+        this.latestPriceLineGraphics.lineStyle(1, 0xff0000, alpha);
+        this.latestPriceLineGraphics.moveTo(0, animatedY + i);
+        this.latestPriceLineGraphics.lineTo(width, animatedY + i);
+      }
+    }
+    
+    // 绘制价格线本身（在渐变之上）
     this.latestPriceLineGraphics.lineStyle(2, this.options.lineColor, 0.8);
     
     // 绘制虚线效果
