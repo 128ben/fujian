@@ -21,6 +21,9 @@ export class PixiChart {
       historicalDataThreshold: options.historicalDataThreshold || 30000, // 历史数据时间阈值(30秒)
       enableRandomMarkers: options.enableRandomMarkers !== false, // 默认启用随机标记点
       randomMarkerInterval: options.randomMarkerInterval || 60000, // 随机标记点间隔(60秒，实际使用时会是0-120秒的随机值)
+      // 新增：未来时间线配置
+      futureTimeLineInterval: options.futureTimeLineInterval || 15000, // 默认15秒
+      showFutureTimeLine: options.showFutureTimeLine !== false, // 默认显示未来时间线
       onLoadMoreHistory: options.onLoadMoreHistory || null, // 加载更多历史数据的回调函数
       onReturnToLatest: options.onReturnToLatest || null, // 返回最新位置的回调函数
       ...options
@@ -1198,7 +1201,7 @@ export class PixiChart {
 
   // 绘制未来时间线
   drawFutureTimeLine() {
-    if (!this.futureTimeLineGraphics) return;
+    if (!this.futureTimeLineGraphics || !this.options.showFutureTimeLine) return;
     
     this.futureTimeLineGraphics.clear();
     
@@ -1206,8 +1209,8 @@ export class PixiChart {
     const chartWidth = this.options.width;
     const chartHeight = this.options.height;
     
-    // 计算15秒之后的时间戳
-    const futureTime = currentTime + 15000; // 15秒 = 15000毫秒
+    // 使用配置的时间间隔
+    const futureTime = currentTime + this.options.futureTimeLineInterval;
     
     // 使用与折线相同的坐标转换方法计算X坐标
     const futureX = this.timeToX(futureTime, currentTime, chartWidth);
@@ -1219,6 +1222,19 @@ export class PixiChart {
       this.futureTimeLineGraphics.moveTo(futureX, 0);
       this.futureTimeLineGraphics.lineTo(futureX, chartHeight);
       
+    }
+  }
+
+  // 新增：设置未来时间线间隔
+  setFutureTimeLineInterval(intervalMs) {
+    this.options.futureTimeLineInterval = intervalMs;
+  }
+
+  // 新增：切换未来时间线显示状态
+  toggleFutureTimeLine(show) {
+    this.options.showFutureTimeLine = show;
+    if (!show) {
+      this.futureTimeLineGraphics.clear();
     }
   }
 
@@ -1370,8 +1386,8 @@ export class PixiChart {
     const chartWidth = this.options.width;
     const chartHeight = this.options.height;
     
-    // 计算黄色时间轴的X坐标（15秒后的时间）
-    const futureTime = currentTime + 15000; // 15秒 = 15000毫秒
+    // 计算黄色时间轴的X坐标（使用配置的时间间隔）
+    const futureTime = currentTime + this.options.futureTimeLineInterval;
     const futureTimeX = this.timeToX(futureTime, currentTime, chartWidth);
     
     // 先过滤掉与折线端点相遇的标记点（只针对下单标记点，不包括随机标记点）
@@ -1381,8 +1397,8 @@ export class PixiChart {
     this.markers.forEach(marker => {
       // 只检查下单标记点（非随机标记点）
       if (!marker.isRandom) {
-        // 计算标记点时间15秒后的X坐标（竖线位置）
-        const markerFutureTime = marker.timestamp + 17000; // 标记点时间 + 15秒
+        // 计算标记点时间后的X坐标（竖线位置）- 使用配置的时间间隔
+        const markerFutureTime = marker.timestamp + this.options.futureTimeLineInterval;
         const markerFutureX = this.timeToX(markerFutureTime, currentTime, chartWidth);
         
         // 计算折线端点位置
@@ -1428,8 +1444,8 @@ export class PixiChart {
       const x = this.timeToX(marker.timestamp, currentTime, chartWidth);
       const y = this.priceToY(marker.price);
       
-      // 计算标记点时间15秒后的X坐标（竖线位置）
-      const markerFutureTime = marker.timestamp + 15000; // 标记点时间 + 15秒
+      // 计算标记点时间后的X坐标（竖线位置）- 使用配置的时间间隔
+      const markerFutureTime = marker.timestamp + this.options.futureTimeLineInterval;
       const markerFutureX = this.timeToX(markerFutureTime, currentTime, chartWidth);
       
       // 检查标记点是否在可视范围内（使用与折线相同的可见性检查）

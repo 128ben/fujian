@@ -1,5 +1,31 @@
 <template>
   <div class="price-chart-container">
+    <!-- 新增：时间线配置面板 -->
+    <div class="timeline-config-panel">
+      <div class="config-group">
+        <label class="config-label">未来时间线:</label>
+        <div class="config-controls">
+          <label class="checkbox-wrapper">
+            <input 
+              type="checkbox" 
+              v-model="showFutureTimeLine" 
+              @change="toggleFutureTimeLine"
+            />
+            <span class="checkbox-label">显示</span>
+          </label>
+          <select 
+            v-model="futureTimeLineInterval" 
+            @change="changeFutureTimeLineInterval"
+            :disabled="!showFutureTimeLine"
+            class="interval-select"
+          >
+            <option value="15000">15秒</option>
+            <option value="30000">30秒</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
     <!-- 控制面板 -->
     <div class="control-panel">
       <div class="stats-info">
@@ -140,6 +166,15 @@ const props = defineProps({
   randomMarkerInterval: {
     type: Number,
     default: 60000 // 默认60秒，但实际使用时会是0-120秒的随机值
+  },
+  // 新增：未来时间线相关属性
+  initialFutureTimeLineInterval: {
+    type: Number,
+    default: 15000 // 默认15秒
+  },
+  initialShowFutureTimeLine: {
+    type: Boolean,
+    default: true
   }
 });
 
@@ -160,6 +195,10 @@ const currentDataSourceId = ref(props.dataSourceId);
 const isDataSourceSwitching = ref(false);
 const isAtLatestPosition = ref(true); // 新增：判断是否在最新位置
 const isLoadingHistory = ref(false); // 新增：判断是否正在加载历史数据
+
+// 新增：未来时间线相关的响应式变量
+const futureTimeLineInterval = ref(props.initialFutureTimeLineInterval);
+const showFutureTimeLine = ref(props.initialShowFutureTimeLine);
 
 const priceChangeClass = computed(() => {
   return priceChange.value > 0 ? 'price-up' : priceChange.value < 0 ? 'price-down' : '';
@@ -313,6 +352,9 @@ function initializeChart() {
     animationEnabled: false,
     enableRandomMarkers: props.enableRandomMarkers,
     randomMarkerInterval: props.randomMarkerInterval,
+    // 新增：未来时间线配置
+    futureTimeLineInterval: futureTimeLineInterval.value,
+    showFutureTimeLine: showFutureTimeLine.value,
     onMarkersRemoved: (removedMarkerIds) => {
       console.log('标记点被移除，通知父组件:', removedMarkerIds);
       emit('markersRemoved', removedMarkerIds);
@@ -547,6 +589,20 @@ function generateMockHistoricalData(startTime, count) {
 function handleReturnToLatest() {
   console.log('用户回到最新位置');
   isAtLatestPosition.value = true;
+}
+
+// 新增：切换未来时间线显示
+function toggleFutureTimeLine() {
+  if (pixiChart) {
+    pixiChart.toggleFutureTimeLine(showFutureTimeLine.value);
+  }
+}
+
+// 新增：更改未来时间线间隔
+function changeFutureTimeLineInterval() {
+  if (pixiChart) {
+    pixiChart.setFutureTimeLineInterval(parseInt(futureTimeLineInterval.value));
+  }
 }
 
 // 手动回到最新位置
@@ -804,6 +860,83 @@ defineExpose({
   flex-direction: column;
   background-color: #1a1a1a;
   position: relative;
+}
+
+.timeline-config-panel {
+  background: rgba(26, 26, 26, 0.95);
+  border-bottom: 1px solid #333;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 14px;
+  color: #cccccc;
+  backdrop-filter: blur(10px);
+  z-index: 10;
+}
+
+.config-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.config-label {
+  font-weight: 500;
+  color: #ffffff;
+  white-space: nowrap;
+}
+
+.config-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.checkbox-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkbox-wrapper input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #00aaff;
+}
+
+.checkbox-label {
+  font-size: 13px;
+  color: #cccccc;
+}
+
+.interval-select {
+  background: rgba(51, 51, 51, 0.8);
+  border: 1px solid #555;
+  border-radius: 4px;
+  padding: 4px 8px;
+  color: #ffffff;
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.interval-select:hover:not(:disabled) {
+  border-color: #00aaff;
+  background: rgba(51, 51, 51, 1);
+}
+
+.interval-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.interval-select option {
+  background: #333;
+  color: #ffffff;
 }
 
 .control-panel {
