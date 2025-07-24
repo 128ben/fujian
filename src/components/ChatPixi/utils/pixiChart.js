@@ -1557,7 +1557,22 @@ export class PixiChart {
             
             const nameLabel = new PIXI.Text(nameText, nameStyle);
             nameLabel.x = x - nameLabel.width / 2; // 水平居中
-            nameLabel.y = y - labelOffsetY - 20; // 在金额标签上方
+            nameLabel.y = y - labelOffsetY - 40; // 调整位置，为价格标签留出空间
+            
+            // 创建价格标签
+            const priceText = `@$${marker.price.toFixed(2)}`;
+            const priceStyle = {
+              fontFamily: 'Arial',
+              fontSize: fontSize - 2, // 与用户名相同大小
+              fill: 0xFFD700, // 金色，突出显示价格
+              fontWeight: 'normal',
+              stroke: 0x000000,
+              strokeThickness: 1
+            };
+            
+            const priceLabel = new PIXI.Text(priceText, priceStyle);
+            priceLabel.x = x - priceLabel.width / 2; // 水平居中
+            priceLabel.y = y - labelOffsetY - 20; // 在金额标签上方，用户名下方
             
             // 确保name标签在可视范围内
             if (nameLabel.x < 0) {
@@ -1566,23 +1581,41 @@ export class PixiChart {
               nameLabel.x = chartWidth - nameLabel.width - 5;
             }
             
+            // 确保price标签在可视范围内
+            if (priceLabel.x < 0) {
+              priceLabel.x = 5;
+            } else if (priceLabel.x + priceLabel.width > chartWidth) {
+              priceLabel.x = chartWidth - priceLabel.width - 5;
+            }
+            
+            // 如果上方空间不足，将所有标签显示在下方
             if (nameLabel.y < 0) {
               nameLabel.y = y + (marker.isRandom ? 11 : 10) + 25; // 如果上方超出，则显示在下方，头像偏移调整为11
+              priceLabel.y = y + (marker.isRandom ? 11 : 10) + 45; // 价格标签在用户名下方
+              amountLabel.y = y + (marker.isRandom ? 11 : 10) + 65; // 金额标签在价格下方
             }
             
             this.markerTextContainer.addChild(nameLabel);
+            this.markerTextContainer.addChild(priceLabel);
             
-            // 创建展开状态的背景框
+            // 创建展开状态的背景框 - 调整高度以容纳三行文本
             const padding = 4;
-            const bgWidth = Math.max(amountLabel.width, nameLabel.width) + padding * 2;
-            const bgHeight = 40; // 包含两行文本的高度
+            const bgWidth = Math.max(amountLabel.width, nameLabel.width, priceLabel.width) + padding * 2;
+            const bgHeight = 60; // 增加高度以包含三行文本
+            
+            // 根据文本标签位置确定背景框位置
+            const isDisplayedBelow = nameLabel.y > y; // 判断文本是否显示在标记点下方
+            const bgX = x - bgWidth / 2;
+            const bgY = isDisplayedBelow ? 
+              y + (marker.isRandom ? 11 : 10) + 20 : // 下方显示时的背景框位置
+              y - labelOffsetY - 45; // 上方显示时的背景框位置
             
             const bgGraphics = new PIXI.Graphics();
             bgGraphics.beginFill(0x000000, 0.7); // 半透明黑色背景
             bgGraphics.lineStyle(1, marker.color, 0.8); // 使用标记点颜色作为边框
             bgGraphics.drawRoundedRect(
-              x - bgWidth / 2, 
-              y - labelOffsetY - 25, 
+              bgX, 
+              bgY,
               bgWidth, 
               bgHeight, 
               5
@@ -1593,6 +1626,7 @@ export class PixiChart {
             
             // 重新添加文本标签，确保它们在背景之上
             this.markerTextContainer.addChild(nameLabel);
+            this.markerTextContainer.addChild(priceLabel);
             this.markerTextContainer.addChild(amountLabel);
           } else {
             // 普通显示模式或不可展开的标记点
