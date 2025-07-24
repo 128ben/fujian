@@ -1059,12 +1059,8 @@ export class PixiChart {
     
     this.latestPriceLineGraphics.clear();
     
-    // 创建渐变效果区域
-    const gradientHeight = 50; // 渐变区域高度
-    
-    // 绘制上方绿色渐变（从上往下，从透明到绿色）
-    const topGradientY = Math.max(0, animatedY - gradientHeight);
-    const topGradientHeight = animatedY - topGradientY;
+    // 绘制上方绿色渐变（从图表顶部到价格线）
+    const topGradientHeight = animatedY; // 从图表顶部（y=0）到价格线位置
     
     if (topGradientHeight > 0) {
       // 使用多条半透明线条模拟渐变效果 - 从上往下，透明度递增
@@ -1076,8 +1072,8 @@ export class PixiChart {
       }
     }
     
-    // 绘制下方红色渐变（从下往上，从透明到红色）
-    const bottomGradientHeight = Math.min(gradientHeight, height - animatedY);
+    // 绘制下方红色渐变（从价格线到图表底部）
+    const bottomGradientHeight = height - animatedY; // 从价格线位置到图表底部
     
     if (bottomGradientHeight > 0) {
       // 使用多条半透明线条模拟渐变效果 - 从下往上，透明度递增
