@@ -1,5 +1,19 @@
 import * as PIXI from 'pixi.js';
 
+/**
+ * PixiChart - 高性能实时图表组件
+ * 
+ * 新增功能：
+ * - 平滑时间轴流动效果：解决x轴"一跳一跳"的问题
+ * - 优化网格更新机制：提供60fps的流畅更新
+ * - 智能更新策略：根据用户交互状态调整更新频率
+ * 
+ * 使用方法：
+ * const chart = new PixiChart(container, options);
+ * chart.setSmoothFlowEnabled(true); // 启用平滑流动（默认启用）
+ * chart.setSmoothFlowInterpolationFactor(0.016); // 调整平滑程度
+ */
+
 export class PixiChart {
   constructor(container, options = {}) {
     this.container = container;
@@ -63,7 +77,7 @@ export class PixiChart {
     
     // 网格更新控制 - 与数据更新频率协调
     this.lastGridUpdate = 0;
-    this.gridUpdateInterval = 500; // 网格更新间隔500ms，与数据更新同步
+    this.gridUpdateInterval = 16; // 改为16ms，约60fps的更新频率，确保流畅的流动效果
     
     // 智能更新策略
     this.updateStrategy = {
@@ -81,6 +95,13 @@ export class PixiChart {
       gridUpdateCount: 0,
       chartUpdateCount: 0,
       lastPerformanceLog: Date.now()
+    };
+    
+    // 时间流动相关配置 - 新增
+    this.timeFlow = {
+      smoothing: true, // 启用平滑流动
+      lastUpdateTime: Date.now(),
+      interpolationFactor: 0.016 // 插值因子，用于平滑过渡
     };
     
     // 标记点管理
@@ -378,34 +399,49 @@ export class PixiChart {
     const visibleTimeStart = currentTime - visibleTimeRange * 0.75; // 75% of time is in the past
     const visibleTimeEnd = currentTime + visibleTimeRange * 0.25;   // 25% of time is in the future
     
-    // 根据时间间隔生成网格线
-    const startGridTime = Math.floor(visibleTimeStart / timeInterval) * timeInterval;
-    const endGridTime = Math.ceil(visibleTimeEnd / timeInterval) * timeInterval;
+    // 优化网格线生成 - 使用更小的时间间隔以实现更平滑的流动效果
+    const smoothTimeInterval = Math.max(100, timeInterval / 5); // 使用更小的间隔，确保平滑流动
+    const startGridTime = Math.floor(visibleTimeStart / smoothTimeInterval) * smoothTimeInterval;
+    const endGridTime = Math.ceil(visibleTimeEnd / smoothTimeInterval) * smoothTimeInterval;
     
-    for (let timestamp = startGridTime; timestamp <= endGridTime + timeInterval; timestamp += timeInterval) {
+    // 用于标签显示的主要网格线
+    const majorGridInterval = timeInterval;
+    
+    for (let timestamp = startGridTime; timestamp <= endGridTime + smoothTimeInterval; timestamp += smoothTimeInterval) {
       // 使用与折线数据完全相同的坐标转换方法
       const x = this.timeToX(timestamp, currentTime, width);
       
       if (x >= -timeGridSpacing && x <= width + timeGridSpacing) {
-        // 绘制垂直线
-        this.gridGraphics.moveTo(x, 0);
-        this.gridGraphics.lineTo(x, height);
+        // 判断是否为主要网格线
+        const isMajorGrid = (timestamp % majorGridInterval) === 0;
         
-        // 添加时间标签
-        const timeText = this.formatTimeLabel(timestamp);
-        
-        // 根据缩放调整字体大小
-        const fontSize = Math.max(10, Math.min(14, 12 / Math.sqrt(this.viewState.scaleX))); // 动态字体大小
-        const text = new PIXI.Text(timeText, {
-          fontFamily: 'Arial',
-          fontSize: fontSize,
-          fill: this.options.textColor,
-          align: 'center'
-        });
-        
-        text.x = x - text.width / 2;
-        text.y = height - 20;
-        this.textContainer.addChild(text);
+        if (isMajorGrid) {
+          // 绘制主要垂直线（更明显）
+          this.gridGraphics.lineStyle(1, this.options.gridColor, 0.5);
+          this.gridGraphics.moveTo(x, 0);
+          this.gridGraphics.lineTo(x, height);
+          
+          // 添加时间标签
+          const timeText = this.formatTimeLabel(timestamp);
+          
+          // 根据缩放调整字体大小
+          const fontSize = Math.max(10, Math.min(14, 12 / Math.sqrt(this.viewState.scaleX))); // 动态字体大小
+          const text = new PIXI.Text(timeText, {
+            fontFamily: 'Arial',
+            fontSize: fontSize,
+            fill: this.options.textColor,
+            align: 'center'
+          });
+          
+          text.x = x - text.width / 2;
+          text.y = height - 20;
+          this.textContainer.addChild(text);
+        } else {
+          // 绘制次要垂直线（更淡）
+          this.gridGraphics.lineStyle(1, this.options.gridColor, 0.15);
+          this.gridGraphics.moveTo(x, 0);
+          this.gridGraphics.lineTo(x, height);
+        }
       }
     }
     
@@ -421,6 +457,9 @@ export class PixiChart {
     // 根据价格步长生成网格线
     const startGridPrice = Math.floor(visiblePriceMin / adjustedPriceStep) * adjustedPriceStep;
     const endGridPrice = Math.ceil(visiblePriceMax / adjustedPriceStep) * adjustedPriceStep;
+    
+    // 重置线条样式为价格网格线
+    this.gridGraphics.lineStyle(1, this.options.gridColor, 0.3);
     
     for (let price = startGridPrice; price <= endGridPrice; price += adjustedPriceStep) {
       // 使用与折线数据完全相同的坐标转换方法
@@ -778,10 +817,10 @@ export class PixiChart {
     const wasAnimating = this.animationState.isAnimating;
     this.updateAnimation();
     
-    // 智能网格更新控制 - 根据活动状态调整更新频率
-    const gridUpdateInterval = this.getOptimalGridUpdateInterval();
+    // 优化网格更新策略 - 实现平滑的时间流动效果
+    const shouldUpdateGrid = this.shouldUpdateGrid(currentTime);
     
-    if (currentTime - this.lastGridUpdate > gridUpdateInterval) {
+    if (shouldUpdateGrid) {
       this.drawGrid();
       this.lastGridUpdate = currentTime;
       this.performanceMonitor.gridUpdateCount++;
@@ -796,6 +835,9 @@ export class PixiChart {
       needsRedraw = true;
     } else if (wasAnimating && !this.animationState.isAnimating) {
       // 动画刚结束，需要重绘最终状态
+      needsRedraw = true;
+    } else if (shouldUpdateGrid && !this.updateStrategy.isDragging) {
+      // 网格更新时，如果不在拖拽状态，也需要重绘图表以保持同步
       needsRedraw = true;
     }
     
@@ -830,6 +872,24 @@ export class PixiChart {
     }
   }
   
+  // 新增：判断是否应该更新网格的方法
+  shouldUpdateGrid(currentTime) {
+    const timeSinceLastUpdate = currentTime - this.lastGridUpdate;
+    
+    // 如果正在拖拽或缩放，使用较低的更新频率避免卡顿
+    if (this.updateStrategy.isDragging || this.updateStrategy.isZooming) {
+      return timeSinceLastUpdate >= 100; // 100ms间隔
+    }
+    
+    // 如果有动画正在进行，使用中等频率更新
+    if (this.animationState.isAnimating) {
+      return timeSinceLastUpdate >= 50; // 50ms间隔
+    }
+    
+    // 正常情况下使用高频更新以确保流畅的时间流动
+    return timeSinceLastUpdate >= this.gridUpdateInterval; // 16ms间隔，约60fps
+  }
+  
   // 输出性能统计
   logPerformanceStats() {
     const stats = {
@@ -858,21 +918,21 @@ export class PixiChart {
     
     // 如果正在拖拽或缩放，使用高频更新
     if (this.updateStrategy.isDragging || this.updateStrategy.isZooming) {
-      return 100; // 100ms高频更新
+      return 50; // 50ms高频更新，提高响应速度
     }
     
     // 如果有动画正在进行，使用中频更新
     if (this.animationState.isAnimating) {
-      return 250; // 250ms中频更新
+      return 33; // 33ms中频更新，约30fps
     }
     
     // 如果最近有活动，使用标准频率
     if (timeSinceLastActivity < this.updateStrategy.activityThreshold) {
-      return 500; // 500ms标准频率
+      return this.gridUpdateInterval; // 使用配置的更新间隔（16ms）
     }
     
     // 静态状态，使用低频更新
-    return 1000; // 1000ms低频更新
+    return 100; // 100ms低频更新，节省性能
   }
   
   // 记录用户活动
@@ -1148,7 +1208,23 @@ export class PixiChart {
     const baseX = latestX - (timeDiff / this.timeRange) * chartWidth;
     
     // 应用视图变换：先缩放再偏移
-    const transformedX = baseX * this.viewState.scaleX + this.viewState.offsetX;
+    let transformedX = baseX * this.viewState.scaleX + this.viewState.offsetX;
+    
+    // 如果启用了平滑流动，应用时间插值
+    if (this.timeFlow && this.timeFlow.smoothing && !this.updateStrategy.isDragging) {
+      const deltaTime = currentTime - this.timeFlow.lastUpdateTime;
+      const smoothingFactor = Math.min(deltaTime * this.timeFlow.interpolationFactor, 1);
+      
+      // 对于实时数据点，应用微小的时间偏移以实现平滑流动
+      if (Math.abs(timeDiff) < 1000) { // 只对1秒内的数据点应用平滑
+        const timeOffset = deltaTime * 0.001; // 时间偏移因子
+        const smoothedTimeDiff = timeDiff - timeOffset;
+        const smoothedBaseX = latestX - (smoothedTimeDiff / this.timeRange) * chartWidth;
+        transformedX = smoothedBaseX * this.viewState.scaleX + this.viewState.offsetX;
+      }
+      
+      this.timeFlow.lastUpdateTime = currentTime;
+    }
     
     // 调试信息（可选）
     // console.log(`timeToX: timestamp=${timestamp}, baseX=${baseX.toFixed(2)}, transformedX=${transformedX.toFixed(2)}, scaleX=${this.viewState.scaleX.toFixed(2)}`);
@@ -2315,5 +2391,26 @@ export class PixiChart {
     }
     
     return isTimeOrderCorrect && timestamps.length === uniqueTimestamps.size;
+  }
+
+  // 设置平滑流动效果
+  setSmoothFlowEnabled(enabled) {
+    if (this.timeFlow) {
+      this.timeFlow.smoothing = enabled;
+      console.log(`时间轴平滑流动效果已${enabled ? '启用' : '禁用'}`);
+    }
+  }
+  
+  // 获取平滑流动效果状态
+  isSmoothFlowEnabled() {
+    return this.timeFlow && this.timeFlow.smoothing;
+  }
+  
+  // 设置平滑流动插值因子
+  setSmoothFlowInterpolationFactor(factor) {
+    if (this.timeFlow) {
+      this.timeFlow.interpolationFactor = Math.max(0.001, Math.min(1, factor));
+      console.log(`时间轴平滑流动插值因子设置为: ${this.timeFlow.interpolationFactor}`);
+    }
   }
 } 
