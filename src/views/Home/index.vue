@@ -122,6 +122,8 @@
           :markerPoints="markerPoints"
           :enableRandomMarkers="true"
           :randomMarkerInterval="getRandomMarkerInterval()"
+          :initialFutureTimeLineInterval="placeOrderForm.expirationTime * 1000"
+          :initialShowFutureTimeLine="true"
           @markersRemoved="handleMarkersRemoved"
           @loadMoreHistory="handleLoadMoreHistory"
           @returnToLatest="handleReturnToLatest"
@@ -475,6 +477,20 @@ watch(
     send();
   }
 );
+
+// 新增：监听PriceChart组件初始化和交易时间变化，确保未来时间线同步
+watch(
+  [() => priceChartRef.value, () => placeOrderForm.value.expirationTime],
+  ([chartRef, expirationTime]) => {
+    if (chartRef && expirationTime) {
+      // PriceChart组件已初始化且有交易时间，同步未来时间线
+      chartRef.setFutureTimeLineInterval(expirationTime * 1000);
+      console.log(`监听到变化，同步未来时间线间隔: ${expirationTime}秒`);
+    }
+  },
+  { immediate: true }
+);
+
 // 走势图
 // 控制图表加载折线，
 const showChart = ref(false)
@@ -798,6 +814,13 @@ const getHomeData = async () => {
       timesList.value = JSON.parse(JSON.stringify(item.times));
       // 设置利率
       interestRate.value = item.interest_rate;
+      
+      // 初始化图表的未来时间线，与交易时间同步
+      if (priceChartRef.value) {
+        priceChartRef.value.setFutureTimeLineInterval(item.times[0] * 1000); // 转换为毫秒
+        console.log(`初始化未来时间线间隔: ${item.times[0]}秒`);
+      }
+      
       !ws && createWebSocket()
       !wsClientRef.value && userStore.userInfo.token && messageWebSocket()
     }
@@ -842,6 +865,13 @@ const decreaseTime = () => {
     ...placeOrderForm.value,
     expirationTime: time
   };
+  
+  // 更新ChatPixi组件中的黄色未来时间线
+  if (priceChartRef.value) {
+    priceChartRef.value.setFutureTimeLineInterval(time * 1000); // 转换为毫秒
+    console.log(`交易时间减少到: ${time}秒，未来时间线已更新`);
+  }
+  
   if (lineChart.value) {
     lineChart.value.changeLastGap(time * 2)
   }
@@ -856,6 +886,13 @@ const increaseTime = () => {
     ...placeOrderForm.value,
     expirationTime: time
   }
+  
+  // 更新ChatPixi组件中的黄色未来时间线
+  if (priceChartRef.value) {
+    priceChartRef.value.setFutureTimeLineInterval(time * 1000); // 转换为毫秒
+    console.log(`交易时间增加到: ${time}秒，未来时间线已更新`);
+  }
+  
   // 调用图表方法
   if (lineChart.value) {
     lineChart.value.changeLastGap(time * 2)
@@ -865,6 +902,13 @@ const isVisibleTime = ref(false);
 // 选择时间
 const selectTime = (time) => {
   placeOrderForm.value.expirationTime = time
+  
+  // 更新ChatPixi组件中的黄色未来时间线
+  if (priceChartRef.value) {
+    priceChartRef.value.setFutureTimeLineInterval(time * 1000); // 转换为毫秒
+    console.log(`选择交易时间: ${time}秒，未来时间线已更新`);
+  }
+  
   // 调用图表方法
   if (lineChart.value && lineChart.value.changeLastGap) {
     lineChart.value.changeLastGap(time * 2);

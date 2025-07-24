@@ -1,7 +1,7 @@
 <template>
   <div class="price-chart-container">
     <!-- 新增：时间线配置面板 -->
-    <div class="timeline-config-panel">
+    <!-- <div class="timeline-config-panel">
       <div class="config-group">
         <label class="config-label">未来时间线:</label>
         <div class="config-controls">
@@ -24,7 +24,7 @@
           </select>
         </div>
       </div>
-    </div>
+    </div> -->
 
     <!-- 控制面板 -->
     <div class="control-panel">
@@ -831,6 +831,26 @@ defineExpose({
       };
     }
     return null;
+  },
+  // 新增：未来时间线控制方法
+  setFutureTimeLineInterval: (intervalMs) => {
+    futureTimeLineInterval.value = intervalMs;
+    if (pixiChart) {
+      pixiChart.setFutureTimeLineInterval(intervalMs);
+    }
+    console.log(`未来时间线间隔已更新为: ${intervalMs}ms (${intervalMs/1000}秒)`);
+  },
+  toggleFutureTimeLine: (show) => {
+    showFutureTimeLine.value = show;
+    if (pixiChart) {
+      pixiChart.toggleFutureTimeLine(show);
+    }
+  },
+  getFutureTimeLineInterval: () => {
+    return futureTimeLineInterval.value;
+  },
+  isFutureTimeLineVisible: () => {
+    return showFutureTimeLine.value;
   }
 });
 </script>
