@@ -1538,7 +1538,7 @@ export class PixiChart {
           const amountLabel = new PIXI.Text(amountText, textStyle);
           
           // 计算标签位置 - 在标记点上方
-          const labelOffsetY = (marker.isRandom ? 15 : 10) + 15; // 头像需要更大的偏移，从20减小到15
+          const labelOffsetY = (marker.isRandom ? 11 : 10) + 15; // 头像偏移调整为11，与新的头像大小匹配
           amountLabel.x = x - amountLabel.width / 2; // 水平居中
           amountLabel.y = y - labelOffsetY; // 在标记点上方
           
@@ -1567,7 +1567,7 @@ export class PixiChart {
             }
             
             if (nameLabel.y < 0) {
-              nameLabel.y = y + (marker.isRandom ? 15 : 10) + 25; // 如果上方超出，则显示在下方，从20减小到15
+              nameLabel.y = y + (marker.isRandom ? 11 : 10) + 25; // 如果上方超出，则显示在下方，头像偏移调整为11
             }
             
             this.markerTextContainer.addChild(nameLabel);
@@ -1604,7 +1604,7 @@ export class PixiChart {
             }
             
             if (amountLabel.y < 0) {
-              amountLabel.y = y + (marker.isRandom ? 15 : 10) + 5; // 如果上方超出，则显示在下方，从20减小到15
+              amountLabel.y = y + (marker.isRandom ? 11 : 10) + 5; // 如果上方超出，则显示在下方，头像偏移调整为11
             }
             
             this.markerTextContainer.addChild(amountLabel);
@@ -1634,9 +1634,9 @@ export class PixiChart {
 
   // 绘制头像标记点（用于随机标记点）
   drawAvatarMarker(x, y, marker) {
-    // 根据缩放级别调整头像大小 - 减小基础大小
+    // 根据缩放级别调整头像大小 - 调整基础大小与下单标记点一致
     const scaleFactor = Math.max(0.5, Math.min(2, 1 / this.viewState.scaleX));
-    const avatarSize = 12 * scaleFactor; // 从16减小到12，头像更小
+    const avatarSize = 8 * scaleFactor; // 从12减小到8，与下单标记点大小一致
     
     // 绘制头像阴影
     this.markerGraphics.beginFill(0x000000, 0.3); // 半透明黑色阴影
@@ -1880,9 +1880,9 @@ export class PixiChart {
       // 根据标记点类型调整检测范围
       let detectionRadius = tolerance;
       if (marker.isRandom && marker.isExpandable) {
-        // 头像标记点需要更大的检测范围 - 调整为更小的头像大小
+        // 头像标记点需要更大的检测范围 - 调整为与绘制大小一致
         const scaleFactor = Math.max(0.5, Math.min(2, 1 / this.viewState.scaleX));
-        const avatarSize = 12 * scaleFactor; // 从16减小到12，与头像大小保持一致
+        const avatarSize = 8 * scaleFactor; // 从12减小到8，与头像绘制大小保持一致
         detectionRadius = Math.max(tolerance, avatarSize + 3); // 头像大小 + 3像素缓冲
       }
       
