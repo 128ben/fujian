@@ -7,11 +7,6 @@ import * as PIXI from 'pixi.js';
  * - 平滑时间轴流动效果：解决x轴"一跳一跳"的问题
  * - 优化网格更新机制：提供60fps的流畅更新
  * - 智能更新策略：根据用户交互状态调整更新频率
- * 
- * 使用方法：
- * const chart = new PixiChart(container, options);
- * chart.setSmoothFlowEnabled(true); // 启用平滑流动（默认启用）
- * chart.setSmoothFlowInterpolationFactor(0.016); // 调整平滑程度
  */
 
 export class PixiChart {
@@ -26,20 +21,19 @@ export class PixiChart {
       pointColor: options.pointColor || 0xffffff,
       latestPointColor: options.latestPointColor || 0xff4444,
       textColor: options.textColor || 0xcccccc,
-      latestPriceLineColor: options.latestPriceLineColor || 0xff4444, // 最新价格线颜色
-      animationDuration: options.animationDuration || 300, // 动画持续时间(ms) - 与数据更新频率协调
-      animationEasing: options.animationEasing || 'easeOutCubic', // 缓动函数
+      latestPriceLineColor: options.latestPriceLineColor || 0xff4444,
+      animationDuration: options.animationDuration || 300,
+      animationEasing: options.animationEasing || 'easeOutCubic',
       animationEnabled: options.animationEnabled || true,
-      showLatestPriceLine: options.showLatestPriceLine !== false, // 默认显示最新价格线
-      showHistoricalData: options.showHistoricalData !== false, // 默认显示历史数据
-      historicalDataThreshold: options.historicalDataThreshold || 30000, // 历史数据时间阈值(30秒)
-      enableRandomMarkers: options.enableRandomMarkers !== false, // 默认启用随机标记点
-      randomMarkerInterval: options.randomMarkerInterval || 60000, // 随机标记点间隔(60秒，实际使用时会是0-120秒的随机值)
-      // 新增：未来时间线配置
-      futureTimeLineInterval: options.futureTimeLineInterval || 15000, // 默认15秒
-      showFutureTimeLine: options.showFutureTimeLine !== false, // 默认显示未来时间线
-      onLoadMoreHistory: options.onLoadMoreHistory || null, // 加载更多历史数据的回调函数
-      onReturnToLatest: options.onReturnToLatest || null, // 返回最新位置的回调函数
+      showLatestPriceLine: options.showLatestPriceLine !== false,
+      showHistoricalData: options.showHistoricalData !== false,
+      historicalDataThreshold: options.historicalDataThreshold || 30000,
+      enableRandomMarkers: options.enableRandomMarkers !== false,
+      randomMarkerInterval: options.randomMarkerInterval || 60000,
+      futureTimeLineInterval: options.futureTimeLineInterval || 15000,
+      showFutureTimeLine: options.showFutureTimeLine !== false,
+      onLoadMoreHistory: options.onLoadMoreHistory || null,
+      onReturnToLatest: options.onReturnToLatest || null,
       ...options
     };
     
@@ -51,9 +45,9 @@ export class PixiChart {
       scaleY: 1,
       isDragging: false,
       dragStart: { x: 0, y: 0 },
-      hasUserDraggedLeft: false, // 新增：用户是否向左拖动过
-      isAtLatestPosition: true, // 新增：是否在最新位置
-      dragDistance: 0 // 新增：拖动距离累计
+      hasUserDraggedLeft: false,
+      isAtLatestPosition: true,
+      dragDistance: 0
     };
     
     // 动画状态管理
@@ -63,7 +57,7 @@ export class PixiChart {
       fromPoint: null,
       toPoint: null,
       currentProgress: 0,
-      pendingAnimations: [] // 待执行的动画队列
+      pendingAnimations: []
     };
     
     // 最新价格线相关
@@ -71,20 +65,20 @@ export class PixiChart {
     this.leftPriceLabel = null;
     this.futureTimeLineGraphics = null;
     
-    this.timeRange = 60000; // 60秒时间范围
-    this.priceRange = { min: 95, max: 105 }; // 初始价格范围
+    this.timeRange = 60000;
+    this.priceRange = { min: 95, max: 105 };
     this.startTime = Date.now();
     
-    // 网格更新控制 - 与数据更新频率协调
+    // 网格更新控制
     this.lastGridUpdate = 0;
-    this.gridUpdateInterval = 16; // 改为16ms，约60fps的更新频率，确保流畅的流动效果
+    this.gridUpdateInterval = 16;
     
     // 智能更新策略
     this.updateStrategy = {
       isDragging: false,
       isZooming: false,
       lastActivityTime: Date.now(),
-      activityThreshold: 2000 // 2秒无活动后降低更新频率
+      activityThreshold: 2000
     };
     
     // 性能监控
@@ -97,35 +91,33 @@ export class PixiChart {
       lastPerformanceLog: Date.now()
     };
     
-    // 时间流动相关配置 - 新增
+    // 时间流动相关配置
     this.timeFlow = {
-      smoothing: true, // 启用平滑流动
+      smoothing: true,
       lastUpdateTime: Date.now(),
-      interpolationFactor: 0.016 // 插值因子，用于平滑过渡
+      interpolationFactor: 0.016
     };
     
     // 标记点管理
-    this.markers = []; // 存储标记点数据
-    this.markerGraphics = new PIXI.Graphics(); // 标记点绘制对象
-    this.markerLines = new Map(); // 存储每个标记点对应的竖线对象
-    this.markerLinesContainer = new PIXI.Container(); // 标记点竖线容器
+    this.markers = [];
+    this.markerGraphics = new PIXI.Graphics();
+    this.markerLines = new Map();
+    this.markerLinesContainer = new PIXI.Container();
     
     // 随机标记点管理
     this.randomMarkerTimer = null;
     this.randomMarkerCounter = 0;
     
     // 历史数据加载管理
-    this.historyLoadThreshold = 200; // 向左拖动超过200像素时加载历史数据
-    this.isLoadingHistory = false; // 是否正在加载历史数据
-    this.lastHistoryLoadTime = 0; // 上次加载历史数据的时间
-    this.historyLoadCooldown = 2000; // 历史数据加载冷却时间（2秒）
+    this.historyLoadThreshold = 200;
+    this.isLoadingHistory = false;
+    this.lastHistoryLoadTime = 0;
+    this.historyLoadCooldown = 2000;
     
     this.init();
   }
   
   init() {
-    // console.log('Initializing PixiChart with dimensions:', this.options.width, 'x', this.options.height);
-    
     // 创建PIXI应用
     this.app = new PIXI.Application({
       width: this.options.width,
@@ -136,46 +128,42 @@ export class PixiChart {
       autoDensity: true
     });
     
-    // console.log('PIXI Application created');
-    
     // 使用canvas而不是view (Pixi.js 7.x兼容性)
     const canvas = this.app.canvas || this.app.view;
     this.container.appendChild(canvas);
     
-    // console.log('Canvas added to container');
-    
     // 创建容器
     this.gridContainer = new PIXI.Container();
     this.chartContainer = new PIXI.Container();
-    this.latestPriceLineContainer = new PIXI.Container(); // 最新价格线容器
+    this.latestPriceLineContainer = new PIXI.Container();
     this.textContainer = new PIXI.Container();
     this.pulseContainer = new PIXI.Container();
     this.priceLabelsContainer = new PIXI.Container();
-    this.markersContainer = new PIXI.Container(); // 标记点容器
-    this.markerTextContainer = new PIXI.Container(); // 标记点文本标签容器
+    this.markersContainer = new PIXI.Container();
+    this.markerTextContainer = new PIXI.Container();
     
     // 添加到stage，顺序很重要
     this.app.stage.addChild(this.gridContainer);
     this.app.stage.addChild(this.chartContainer);
-    this.app.stage.addChild(this.latestPriceLineContainer); // 最新价格线在图表之上
-    this.app.stage.addChild(this.markersContainer); // 标记点在图表之上
-    this.app.stage.addChild(this.markerLinesContainer); // 标记点竖线容器
+    this.app.stage.addChild(this.latestPriceLineContainer);
+    this.app.stage.addChild(this.markersContainer);
+    this.app.stage.addChild(this.markerLinesContainer);
     this.app.stage.addChild(this.pulseContainer);
     this.app.stage.addChild(this.textContainer);
     this.app.stage.addChild(this.priceLabelsContainer);
     
-    // 创建图形对象 - 简化为单一线段对象
+    // 创建图形对象
     this.gridGraphics = new PIXI.Graphics();
-    this.lineGraphics = new PIXI.Graphics(); // 统一的线段绘制对象
-    this.latestPriceLineGraphics = new PIXI.Graphics(); // 最新价格线绘制对象
+    this.lineGraphics = new PIXI.Graphics();
+    this.latestPriceLineGraphics = new PIXI.Graphics();
     this.pulseGraphics = new PIXI.Graphics();
     this.futureTimeLineGraphics = new PIXI.Graphics();
 
     this.gridContainer.addChild(this.gridGraphics);
     this.chartContainer.addChild(this.lineGraphics);
     this.latestPriceLineContainer.addChild(this.latestPriceLineGraphics);
-    this.markersContainer.addChild(this.markerGraphics); // 添加标记点绘制对象
-    this.markersContainer.addChild(this.markerTextContainer); // 添加文本标签容器到标记点容器中
+    this.markersContainer.addChild(this.markerGraphics);
+    this.markersContainer.addChild(this.markerTextContainer);
     this.pulseContainer.addChild(this.pulseGraphics);
     this.gridContainer.addChild(this.futureTimeLineGraphics);
     
@@ -206,8 +194,6 @@ export class PixiChart {
     
     // 启动随机标记点定时器
     this.startRandomMarkerTimer();
-    
-    // console.log('PixiChart initialization complete');
   }
   
   setupInteraction() {
@@ -221,64 +207,37 @@ export class PixiChart {
       this.recordActivity();
       this.zoom(delta, e.offsetX, e.offsetY);
       
-      // 缩放结束后重置状态
       setTimeout(() => {
         this.updateStrategy.isZooming = false;
       }, 200);
     });
     
-    // 鼠标点击事件 - 处理标记点点击
+    // 鼠标点击事件
     canvas.addEventListener('click', (e) => {
       const rect = canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
       
-      console.log('点击事件触发:', { x, y });
-      
-      // 检查是否点击了标记点
-      const clickedMarker = this.getMarkerAt(x, y, 15); // 增加容错范围到15像素
-      
-      console.log('查找到的标记点:', clickedMarker);
+      const clickedMarker = this.getMarkerAt(x, y, 15);
       
       if (clickedMarker) {
-        console.log('标记点详情:', {
-          id: clickedMarker.id,
-          isExpandable: clickedMarker.isExpandable,
-          isExpanded: clickedMarker.isExpanded,
-          name: clickedMarker.name,
-          isRandom: clickedMarker.isRandom
-        });
-        
         if (clickedMarker.isExpandable) {
-          // 切换展开状态
           clickedMarker.isExpanded = !clickedMarker.isExpanded;
-          
-          console.log(`标记点 ${clickedMarker.id} 展开状态切换为: ${clickedMarker.isExpanded ? '展开' : '收起'}`);
-          
-          // 重新绘制标记点以显示变化
           this.drawMarkers();
-          
-          // 阻止事件冒泡，避免触发拖拽
           e.stopPropagation();
           return;
-        } else {
-          console.log('标记点不可展开');
         }
-      } else {
-        console.log('没有找到标记点');
       }
     });
     
     // 鼠标拖拽
     canvas.addEventListener('mousedown', (e) => {
-      // 检查是否点击了标记点，如果是则不启动拖拽
       const rect = canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
       const clickedMarker = this.getMarkerAt(x, y, 15);
       
       if (clickedMarker && clickedMarker.isExpandable) {
-        // 点击了可展开的标记点，不启动拖拽
         return;
       }
       
@@ -296,20 +255,13 @@ export class PixiChart {
         const deltaY = e.offsetY - this.viewState.lastMouseY;
         
         this.viewState.offsetX += deltaX;
-        // this.viewState.offsetY += deltaY; // 注释掉y轴拖拽
-        
-        // 累计拖动距离
         this.viewState.dragDistance += Math.abs(deltaX);
         
-        // 检查用户是否向左拖动（查看历史数据）
         if (deltaX > 0) {
           this.viewState.hasUserDraggedLeft = true;
           this.viewState.isAtLatestPosition = false;
-          
-          // 检查是否需要加载更多历史数据
           this.checkAndLoadMoreHistory();
         } else if (deltaX < 0) {
-          // 向右拖动，检查是否接近最新位置
           this.checkIfNearLatestPosition();
         }
         
