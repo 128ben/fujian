@@ -77,10 +77,6 @@
           <span>🎬</span>
           <span>动画</span>
         </button>
-        <button @click="toggleYAxisAnimation" class="control-btn" :class="{ active: yAxisAnimationEnabled }">
-          <span>📊</span>
-          <span>Y轴动画</span>
-        </button>
       </div>
     </div>
     
@@ -178,7 +174,6 @@ const tooltipStyle = ref({});
 const connectionStatus = ref('connecting');
 const showLatestPriceLine = ref(true);
 const animationEnabled = ref(false);
-const yAxisAnimationEnabled = ref(true); // Y轴动画默认启用
 const currentDataSourceId = ref(props.dataSourceId);
 const isDataSourceSwitching = ref(false);
 const isAtLatestPosition = ref(true); // 新增：判断是否在最新位置
@@ -343,10 +338,6 @@ function initializeChart() {
     // 新增：未来时间线配置
     futureTimeLineInterval: futureTimeLineInterval.value,
     showFutureTimeLine: showFutureTimeLine.value,
-    // Y轴动画配置
-    yAxisAnimationEnabled: yAxisAnimationEnabled.value,
-    yAxisAnimationDuration: 500,
-    yAxisAnimationEasing: 'easeOutCubic',
     onMarkersRemoved: (removedMarkerIds) => {
       console.log('标记点被移除，通知父组件:', removedMarkerIds);
       emit('markersRemoved', removedMarkerIds);
@@ -444,13 +435,6 @@ function toggleAnimation() {
   animationEnabled.value = !animationEnabled.value;
   if (pixiChart) {
     pixiChart.setAnimationEnabled(animationEnabled.value);
-  }
-}
-
-function toggleYAxisAnimation() {
-  yAxisAnimationEnabled.value = !yAxisAnimationEnabled.value;
-  if (pixiChart) {
-    pixiChart.setYAxisAnimationEnabled(yAxisAnimationEnabled.value);
   }
 }
 
@@ -867,16 +851,6 @@ defineExpose({
   },
   isFutureTimeLineVisible: () => {
     return showFutureTimeLine.value;
-  },
-  // Y轴动画控制方法
-  toggleYAxisAnimation: (enabled) => {
-    yAxisAnimationEnabled.value = enabled;
-    if (pixiChart) {
-      pixiChart.setYAxisAnimationEnabled(enabled);
-    }
-  },
-  isYAxisAnimationEnabled: () => {
-    return yAxisAnimationEnabled.value;
   }
 });
 </script>

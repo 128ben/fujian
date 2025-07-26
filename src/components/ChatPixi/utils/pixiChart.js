@@ -34,10 +34,6 @@ export class PixiChart {
       showFutureTimeLine: options.showFutureTimeLine !== false,
       onLoadMoreHistory: options.onLoadMoreHistory || null,
       onReturnToLatest: options.onReturnToLatest || null,
-      // Y轴动画相关配置
-      yAxisAnimationEnabled: options.yAxisAnimationEnabled !== false,
-      yAxisAnimationDuration: options.yAxisAnimationDuration || 500,
-      yAxisAnimationEasing: options.yAxisAnimationEasing || 'easeOutCubic',
       ...options
     };
     
@@ -64,16 +60,6 @@ export class PixiChart {
       pendingAnimations: []
     };
     
-    // Y轴动画状态管理
-    this.yAxisAnimationState = {
-      isAnimating: false,
-      startTime: 0,
-      fromRange: { min: 95, max: 105 },
-      toRange: { min: 95, max: 105 },
-      currentProgress: 0,
-      animatedRange: { min: 95, max: 105 }
-    };
-    
     // 最新价格线相关
     this.latestPriceLineGraphics = null;
     this.leftPriceLabel = null;
@@ -81,7 +67,6 @@ export class PixiChart {
     
     this.timeRange = 60000;
     this.priceRange = { min: 95, max: 105 };
-    this.targetPriceRange = { min: 95, max: 105 }; // 目标价格范围
     this.startTime = Date.now();
     
     // 网格更新控制
@@ -602,74 +587,8 @@ export class PixiChart {
     const max = Math.max(...prices);
     const padding = (max - min) * 0.3 || 2; // 增大padding到30%，至少2的padding
     
-    const newTargetRange = {
-      min: min - padding,
-      max: max + padding
-    };
-    
-    // 检查是否需要启动Y轴动画
-    if (this.options.yAxisAnimationEnabled && 
-        (Math.abs(newTargetRange.min - this.targetPriceRange.min) > 0.01 || 
-         Math.abs(newTargetRange.max - this.targetPriceRange.max) > 0.01)) {
-      
-      // 启动Y轴动画
-      this.startYAxisAnimation(this.targetPriceRange, newTargetRange);
-    }
-    
-    // 更新目标价格范围
-    this.targetPriceRange = { ...newTargetRange };
-    
-    // 如果动画未启用，直接更新价格范围
-    if (!this.options.yAxisAnimationEnabled) {
-      this.priceRange = { ...newTargetRange };
-    }
-  }
-  
-  // 启动Y轴动画
-  startYAxisAnimation(fromRange, toRange) {
-    // 如果已有动画在进行，更新目标范围
-    if (this.yAxisAnimationState.isAnimating) {
-      this.yAxisAnimationState.toRange = { ...toRange };
-      return;
-    }
-    
-    this.yAxisAnimationState.isAnimating = true;
-    this.yAxisAnimationState.startTime = Date.now();
-    this.yAxisAnimationState.fromRange = { ...fromRange };
-    this.yAxisAnimationState.toRange = { ...toRange };
-    this.yAxisAnimationState.currentProgress = 0;
-    this.yAxisAnimationState.animatedRange = { ...fromRange };
-  }
-  
-  // 更新Y轴动画状态
-  updateYAxisAnimation() {
-    if (!this.yAxisAnimationState.isAnimating) return false;
-    
-    const elapsed = Date.now() - this.yAxisAnimationState.startTime;
-    this.yAxisAnimationState.currentProgress = Math.min(elapsed / this.options.yAxisAnimationDuration, 1);
-    
-    // 使用缓动函数计算当前进度
-    const easedProgress = this.easeOutCubic(this.yAxisAnimationState.currentProgress);
-    
-    // 插值计算当前的价格范围
-    const fromRange = this.yAxisAnimationState.fromRange;
-    const toRange = this.yAxisAnimationState.toRange;
-    
-    this.yAxisAnimationState.animatedRange.min = fromRange.min + (toRange.min - fromRange.min) * easedProgress;
-    this.yAxisAnimationState.animatedRange.max = fromRange.max + (toRange.max - fromRange.max) * easedProgress;
-    
-    // 更新实际使用的价格范围
-    this.priceRange = { ...this.yAxisAnimationState.animatedRange };
-    
-    // 动画完成
-    if (this.yAxisAnimationState.currentProgress >= 1) {
-      this.yAxisAnimationState.isAnimating = false;
-      this.yAxisAnimationState.currentProgress = 0;
-      this.priceRange = { ...this.yAxisAnimationState.toRange };
-      return true; // 返回true表示动画完成
-    }
-    
-    return false; // 返回false表示动画继续
+    this.priceRange.min = min - padding;
+    this.priceRange.max = max + padding;
   }
   
   formatTimeLabel(timestamp) {
@@ -826,10 +745,6 @@ export class PixiChart {
     const wasAnimating = this.animationState.isAnimating;
     this.updateAnimation();
     
-    // 更新Y轴动画状态
-    const wasYAxisAnimating = this.yAxisAnimationState.isAnimating;
-    const yAxisAnimationCompleted = this.updateYAxisAnimation();
-    
     // 优化网格更新策略 - 实现平滑的时间流动效果
     const shouldUpdateGrid = this.shouldUpdateGrid(currentTime);
     
@@ -848,12 +763,6 @@ export class PixiChart {
       needsRedraw = true;
     } else if (wasAnimating && !this.animationState.isAnimating) {
       // 动画刚结束，需要重绘最终状态
-      needsRedraw = true;
-    } else if (this.yAxisAnimationState.isAnimating) {
-      // Y轴动画进行中，需要重绘
-      needsRedraw = true;
-    } else if (wasYAxisAnimating && !this.yAxisAnimationState.isAnimating) {
-      // Y轴动画刚结束，需要重绘最终状态
       needsRedraw = true;
     } else if (shouldUpdateGrid && !this.updateStrategy.isDragging) {
       // 网格更新时，如果不在拖拽状态，也需要重绘图表以保持同步
@@ -2276,71 +2185,5 @@ export class PixiChart {
     if (this.timeFlow) {
       this.timeFlow.interpolationFactor = Math.max(0.001, Math.min(1, factor));
     }
-  }
-  
-  // Y轴动画控制方法
-  
-  // 启用/禁用Y轴动画
-  setYAxisAnimationEnabled(enabled) {
-    this.options.yAxisAnimationEnabled = enabled;
-    
-    // 如果禁用动画，立即停止当前动画并设置为目标值
-    if (!enabled && this.yAxisAnimationState.isAnimating) {
-      this.yAxisAnimationState.isAnimating = false;
-      this.yAxisAnimationState.currentProgress = 0;
-      this.priceRange = { ...this.targetPriceRange };
-    }
-  }
-  
-  // 获取Y轴动画启用状态
-  isYAxisAnimationEnabled() {
-    return this.options.yAxisAnimationEnabled;
-  }
-  
-  // 设置Y轴动画持续时间
-  setYAxisAnimationDuration(duration) {
-    this.options.yAxisAnimationDuration = Math.max(100, duration);
-  }
-  
-  // 获取Y轴动画持续时间
-  getYAxisAnimationDuration() {
-    return this.options.yAxisAnimationDuration;
-  }
-  
-  // 设置Y轴动画缓动函数
-  setYAxisAnimationEasing(easing) {
-    this.options.yAxisAnimationEasing = easing;
-  }
-  
-  // 获取Y轴动画缓动函数
-  getYAxisAnimationEasing() {
-    return this.options.yAxisAnimationEasing;
-  }
-  
-  // 获取Y轴动画状态信息
-  getYAxisAnimationInfo() {
-    return {
-      isAnimating: this.yAxisAnimationState.isAnimating,
-      currentProgress: this.yAxisAnimationState.currentProgress,
-      fromRange: { ...this.yAxisAnimationState.fromRange },
-      toRange: { ...this.yAxisAnimationState.toRange },
-      animatedRange: { ...this.yAxisAnimationState.animatedRange },
-      targetRange: { ...this.targetPriceRange },
-      currentRange: { ...this.priceRange },
-      animationEnabled: this.options.yAxisAnimationEnabled,
-      animationDuration: this.options.yAxisAnimationDuration,
-      animationEasing: this.options.yAxisAnimationEasing
-    };
-  }
-  
-  // 强制立即更新Y轴到目标范围（跳过动画）
-  forceUpdateYAxisToTarget() {
-    if (this.yAxisAnimationState.isAnimating) {
-      this.yAxisAnimationState.isAnimating = false;
-      this.yAxisAnimationState.currentProgress = 0;
-    }
-    this.priceRange = { ...this.targetPriceRange };
-    this.drawChart();
-    this.drawGrid();
   }
 } 
