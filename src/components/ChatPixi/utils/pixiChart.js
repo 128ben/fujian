@@ -568,12 +568,10 @@ export class PixiChart {
   priceToY(price) {
     const normalizedPrice = (price - this.priceRange.min) / (this.priceRange.max - this.priceRange.min);
     const chartTop = this.options.height * 0.1;
-    const chartHeight = this.options.height * 0.7; // 留出底部空间给时间标签
+    const chartHeight = this.options.height * 0.7;
     const baseY = chartTop + chartHeight - (normalizedPrice * chartHeight);
     
-    // 不应用视图变换，只返回基础Y坐标（y轴不受缩放影响）
     return baseY;
-    // return baseY * this.viewState.scaleY + this.viewState.offsetY; // 注释掉y轴变换
   }
   
   updatePriceRange() {
@@ -619,8 +617,6 @@ export class PixiChart {
         const bestDataPoint = this.findBestMarkerPosition(marker.originalTimestamp || marker.timestamp, marker.originalPrice || marker.price);
         
         if (bestDataPoint) {
-          // console.log(`调整标记点位置: ID=${marker.id}, 从 ${new Date(marker.timestamp).toLocaleTimeString()} 调整到 ${new Date(bestDataPoint.timestamp).toLocaleTimeString()}`);
-          
           marker.timestamp = bestDataPoint.timestamp;
           marker.price = bestDataPoint.price;
           adjustedCount++;
@@ -629,8 +625,7 @@ export class PixiChart {
     });
     
     if (adjustedCount > 0) {
-      // console.log(`调整了 ${adjustedCount} 个标记点的位置`);
-      this.drawMarkers(); // 重新绘制标记点
+      this.drawMarkers();
     }
   }
 
@@ -709,7 +704,6 @@ export class PixiChart {
     this.markers = this.markers.filter(marker => marker.isRandom || marker.timestamp > cutoffTime);
     
     if (this.markers.length < originalCount) {
-      console.log(`清理了 ${originalCount - this.markers.length} 个过期的下单标记点和对应竖线，保留了所有随机标记点`);
       this.drawMarkers();
     }
   }
@@ -838,8 +832,6 @@ export class PixiChart {
       isZooming: this.updateStrategy.isZooming
     };
     
-    console.log('📊 PixiChart性能统计:', stats);
-    
     // 重置计数器
     this.performanceMonitor.gridUpdateCount = 0;
     this.performanceMonitor.chartUpdateCount = 0;
@@ -877,23 +869,18 @@ export class PixiChart {
   // 重置视图状态
   resetView() {
     this.viewState.offsetX = 0;
-    // this.viewState.offsetY = 0; // 不重置y轴偏移
     this.viewState.scaleX = 1;
-    // this.viewState.scaleY = 1; // 不重置y轴缩放
-    this.viewState.hasUserDraggedLeft = false; // 重置拖动状态
+    this.viewState.hasUserDraggedLeft = false;
     
     // 重置动画状态
     this.animationState.isAnimating = false;
     this.animationState.pendingAnimations = [];
     
     this.updateView();
-    console.log('视图已重置，历史数据将重新隐藏');
   }
   
   // 清空所有数据和视觉元素
   clearData() {
-    console.log('PixiChart: 清空数据和视觉元素');
-    
     // 清空数据
     this.data = [];
     this.lastEndPoint = null;
@@ -929,8 +916,6 @@ export class PixiChart {
     
     // 重新绘制网格
     this.drawGrid();
-    
-    console.log('PixiChart: 数据清空完成，历史数据显示状态已重置，随机标记点已保留');
   }
   
   resize(width, height) {
@@ -1166,74 +1151,20 @@ export class PixiChart {
     return transformedX;
   }
 
-  // 验证网格和折线图同步性的调试方法
-  validateGridChartSync() {
-    if (this.data.length === 0) return;
-    
-    const currentTime = Date.now();
-    const chartWidth = this.options.width;
-    
-    // 获取最新的数据点
-    const latestDataPoint = this.data[this.data.length - 1];
-    
-    // 计算折线图中该点的坐标
-    const chartX = this.timeToX(latestDataPoint.timestamp, currentTime, chartWidth);
-    const chartY = this.priceToY(latestDataPoint.price);
-    
-    // 计算网格中相应时间和价格线的坐标
-    const gridTimeX = this.timeToX(latestDataPoint.timestamp, currentTime, chartWidth);
-    const gridPriceY = this.priceToY(latestDataPoint.price);
-    
-    // 检查同步性
-    const timeSyncError = Math.abs(chartX - gridTimeX);
-    const priceSyncError = Math.abs(chartY - gridPriceY);
-    
-    console.log('🔍 网格与折线图同步检查:', {
-      数据点时间: new Date(latestDataPoint.timestamp).toLocaleTimeString(),
-      数据点价格: latestDataPoint.price.toFixed(2),
-      折线图X坐标: chartX.toFixed(2),
-      网格时间X坐标: gridTimeX.toFixed(2),
-      时间同步误差: timeSyncError.toFixed(4),
-      折线图Y坐标: chartY.toFixed(2),
-      网格价格Y坐标: gridPriceY.toFixed(2),
-      价格同步误差: priceSyncError.toFixed(4),
-      缩放级别: this.viewState.scaleX.toFixed(2),
-      偏移量: this.viewState.offsetX.toFixed(2),
-      同步状态: (timeSyncError < 0.1 && priceSyncError < 0.1) ? '✅ 完美同步' : '⚠️ 存在偏差'
-    });
-    
-    return {
-      timeSyncError,
-      priceSyncError,
-      isInSync: timeSyncError < 0.1 && priceSyncError < 0.1
-    };
-  }
-
-  // 重写zoom方法，添加同步验证
+  // 重写zoom方法
   zoom(factor, centerX, centerY) {
     const oldScaleX = this.viewState.scaleX;
-    const oldScaleY = this.viewState.scaleY;
     
     // 只对x轴进行缩放，y轴保持不变
     this.viewState.scaleX = Math.max(0.1, Math.min(10, this.viewState.scaleX * factor));
-    // this.viewState.scaleY = Math.max(0.1, Math.min(10, this.viewState.scaleY * factor)); // 注释掉y轴缩放
     
     // 调整偏移以保持缩放中心
     const scaleFactorX = this.viewState.scaleX / oldScaleX;
-    // const scaleFactorY = this.viewState.scaleY / oldScaleY; // 注释掉y轴缩放因子
     
     this.viewState.offsetX = centerX - (centerX - this.viewState.offsetX) * scaleFactorX;
-    // this.viewState.offsetY = centerY - (centerY - this.viewState.offsetY) * scaleFactorY; // 注释掉y轴偏移调整
     
     // 立即更新视图以确保同步
     this.updateView();
-    
-    // 验证同步性（在开发环境中启用）
-    if (process.env.NODE_ENV === 'development') {
-      setTimeout(() => {
-        this.validateGridChartSync();
-      }, 100); // 延迟100ms确保渲染完成
-    }
   }
 
   // 绘制未来时间线
@@ -1322,21 +1253,15 @@ export class PixiChart {
 
   // 添加标记点方法
   addMarker(markerData) {
-    // 查找最接近指定时间戳的实际数据点
-    const targetTimestamp = markerData.timestamp || Date.now();
-    const targetPrice = markerData.price || 0;
-    
     // 如果没有数据，直接返回
     if (this.data.length === 0) {
-      console.warn('没有折线图数据，无法添加标记点');
       return null;
     }
     
     // 使用智能查找方法找到最佳位置
-    const bestDataPoint = this.findBestMarkerPosition(targetTimestamp, targetPrice);
+    const bestDataPoint = this.findBestMarkerPosition(markerData.timestamp || Date.now(), markerData.price || 0);
     
     if (!bestDataPoint) {
-      console.warn('无法找到合适的数据点位置');
       return null;
     }
     
@@ -1355,25 +1280,13 @@ export class PixiChart {
       isExpandable: markerData.isExpandable || false, // 保留可展开标识
       isExpanded: markerData.isExpanded || false, // 保留展开状态
       isUserOrder: markerData.isUserOrder || false, // 保留用户下单标识
-      originalTimestamp: targetTimestamp, // 保存原始时间戳用于调试
-      originalPrice: targetPrice, // 保存原始价格用于调试
-      timeDiff: Math.abs(bestDataPoint.timestamp - targetTimestamp) // 保存时间差用于调试
+      originalTimestamp: bestDataPoint.timestamp, // 保存原始时间戳用于调试
+      originalPrice: bestDataPoint.price, // 保存原始价格用于调试
+      timeDiff: Math.abs(bestDataPoint.timestamp - (markerData.timestamp || Date.now())) // 保存时间差用于调试
     };
     
     this.markers.push(marker);
     this.drawMarkers();
-    
-    console.log('添加标记点到折线图:', {
-      原始时间: new Date(targetTimestamp).toLocaleTimeString(),
-      实际时间: new Date(bestDataPoint.timestamp).toLocaleTimeString(),
-      时间差: marker.timeDiff + 'ms',
-      原始价格: targetPrice.toFixed(2),
-      实际价格: bestDataPoint.price.toFixed(2),
-      标记点类型: marker.type,
-      标记点ID: marker.id,
-      是否可展开: marker.isExpandable,
-      用户名: marker.name
-    });
     
     return marker.id;
   }
@@ -1401,8 +1314,6 @@ export class PixiChart {
     
     // 合并随机标记点和新的下单标记点
     this.markers = [...existingRandomMarkers, ...newOrderMarkers];
-    
-    console.log(`更新标记点: 保留了 ${existingRandomMarkers.length} 个随机标记点，添加了 ${newOrderMarkers.length} 个下单标记点`);
     
     this.drawMarkers();
   }
@@ -1447,7 +1358,6 @@ export class PixiChart {
         
         // 如果竖线与折线端点相遇，标记为需要移除
         if (isMarkerLineMeetingEndPoint) {
-          console.log(`下单标记点 ${marker.id} 的竖线与折线端点相遇，标记为移除`);
           markersToRemove.push(marker.id);
         }
       }
@@ -1466,8 +1376,6 @@ export class PixiChart {
           this.markerLines.delete(markerId);
         }
       });
-      
-      console.log(`移除了 ${markersToRemove.length} 个与折线端点相遇的下单标记点，剩余 ${this.markers.length} 个标记点`);
       
       // 通知父组件标记点已被移除
       if (this.options.onMarkersRemoved && typeof this.options.onMarkersRemoved === 'function') {
@@ -1507,15 +1415,13 @@ export class PixiChart {
           // 如果黄色时间轴可见，绘制连接线
           if (isTimeLineVisible) {
             // 绘制从标记点到竖线位置的连接线
-            this.markerGraphics.lineStyle(1, marker.color, 0.6); // 使用标记点相同的颜色，透明度0.6
+            this.markerGraphics.lineStyle(1, marker.color, 0.6);
             
             // 检查竖线是否在可视范围内
             if (markerFutureX >= -50 && markerFutureX <= chartWidth + 50) {
               // 从标记点开始绘制横线到竖线位置
               this.markerGraphics.moveTo(x, y);
-              this.markerGraphics.lineTo(markerFutureX, y); // 水平线到竖线位置
-              
-              // console.log(`绘制下单标记点 ${marker.id} 的连接线: 从标记点(${x.toFixed(2)}, ${y.toFixed(2)}) 到竖线位置(${markerFutureX.toFixed(2)}, ${y.toFixed(2)})`);
+              this.markerGraphics.lineTo(markerFutureX, y);
             }
           }
         }
@@ -1914,8 +1820,6 @@ export class PixiChart {
     const currentTime = Date.now();
     const chartWidth = this.options.width;
     
-    console.log('getMarkerAt调用:', { x, y, tolerance, markersCount: this.markers.length });
-    
     const foundMarker = this.markers.find(marker => {
       // 使用与绘制标记点相同的坐标转换方法
       const markerX = this.timeToX(marker.timestamp, currentTime, chartWidth);
@@ -1924,30 +1828,17 @@ export class PixiChart {
       // 根据标记点类型调整检测范围
       let detectionRadius = tolerance;
       if (marker.isRandom && marker.isExpandable) {
-        // 头像标记点需要更大的检测范围 - 调整为与绘制大小一致
+        // 头像标记点需要更大的检测范围
         const scaleFactor = Math.max(0.5, Math.min(2, 1 / this.viewState.scaleX));
-        const avatarSize = 8 * scaleFactor; // 从12减小到8，与头像绘制大小保持一致
-        detectionRadius = Math.max(tolerance, avatarSize + 3); // 头像大小 + 3像素缓冲
+        const avatarSize = 8 * scaleFactor;
+        detectionRadius = Math.max(tolerance, avatarSize + 3);
       }
       
       const distance = Math.sqrt(Math.pow(x - markerX, 2) + Math.pow(y - markerY, 2));
       
-      console.log('检查标记点:', {
-        id: marker.id,
-        markerX: markerX.toFixed(2),
-        markerY: markerY.toFixed(2),
-        distance: distance.toFixed(2),
-        detectionRadius: detectionRadius.toFixed(2),
-        isWithinTolerance: distance <= detectionRadius,
-        isExpandable: marker.isExpandable,
-        isRandom: marker.isRandom,
-        markerType: marker.isRandom ? '头像' : '圆点'
-      });
-      
       return distance <= detectionRadius;
     });
     
-    console.log('找到的标记点:', foundMarker);
     return foundMarker;
   }
 
@@ -1955,7 +1846,6 @@ export class PixiChart {
   enableHistoricalData() {
     if (!this.viewState.hasUserDraggedLeft) {
       this.viewState.hasUserDraggedLeft = true;
-      console.log('手动启用历史数据显示');
       this.drawChart();
     }
   }
@@ -1964,7 +1854,6 @@ export class PixiChart {
   disableHistoricalData() {
     if (this.viewState.hasUserDraggedLeft) {
       this.viewState.hasUserDraggedLeft = false;
-      console.log('手动禁用历史数据显示');
       this.drawChart();
     }
   }
@@ -1977,7 +1866,6 @@ export class PixiChart {
   // 设置历史数据时间阈值
   setHistoricalDataThreshold(threshold) {
     this.options.historicalDataThreshold = threshold;
-    console.log(`历史数据阈值设置为: ${threshold}ms`);
     
     // 如果历史数据未启用，重新绘制图表
     if (!this.viewState.hasUserDraggedLeft) {
@@ -1988,7 +1876,6 @@ export class PixiChart {
   // 启动随机标记点定时器
   startRandomMarkerTimer() {
     if (!this.options.enableRandomMarkers) {
-      console.log('随机标记点功能已禁用');
       return;
     }
 
@@ -2009,7 +1896,6 @@ export class PixiChart {
     if (this.randomMarkerTimer) {
       clearTimeout(this.randomMarkerTimer);
       this.randomMarkerTimer = null;
-      console.log('随机标记点定时器已停止');
     }
   }
 
@@ -2017,7 +1903,6 @@ export class PixiChart {
   generateRandomMarker() {
     // 检查是否有足够的数据点来生成标记点
     if (this.data.length === 0) {
-      console.log('没有折线图数据，跳过随机标记点生成');
       // 重新启动定时器，继续等待下一次生成
       this.startRandomMarkerTimer();
       return;
@@ -2064,22 +1949,10 @@ export class PixiChart {
     const markerId = this.addMarker(randomMarkerData);
     
     if (markerId) {
-      console.log('随机标记点生成成功:', {
-        ID: markerId,
-        类型: markerType,
-        方向: isBuyUp ? '买涨' : '买跌',
-        金额: `$${randomAmount}`,
-        用户名: randomName,
-        时间: new Date(latestDataPoint.timestamp).toLocaleTimeString(),
-        价格: latestDataPoint.price.toFixed(2)
-      });
-
       // 通知父组件有新的随机标记点生成
       if (this.options.onRandomMarkerGenerated && typeof this.options.onRandomMarkerGenerated === 'function') {
         this.options.onRandomMarkerGenerated(randomMarkerData);
       }
-    } else {
-      console.warn('随机标记点生成失败');
     }
     
     // 重新启动定时器，设置下一次随机间隔
@@ -2092,17 +1965,14 @@ export class PixiChart {
     
     if (enabled) {
       this.startRandomMarkerTimer();
-      console.log('随机标记点功能已启用');
     } else {
       this.stopRandomMarkerTimer();
-      console.log('随机标记点功能已禁用');
     }
   }
 
   // 设置随机标记点间隔
   setRandomMarkerInterval(interval) {
     this.options.randomMarkerInterval = interval;
-    console.log(`随机标记点间隔设置为: ${interval}ms`);
     
     // 如果当前启用了随机标记点，重新启动定时器
     if (this.options.enableRandomMarkers) {
@@ -2162,28 +2032,24 @@ export class PixiChart {
     this.lastHistoryLoadTime = Date.now();
     this.viewState.dragDistance = 0; // 重置拖动距离
     
-    console.log('触发加载更多历史数据');
-    
     // 调用外部提供的历史数据加载回调
     if (typeof this.options.onLoadMoreHistory === 'function') {
       const earliestTime = this.data.length > 0 ? Math.min(...this.data.map(d => d.timestamp)) : Date.now();
       this.options.onLoadMoreHistory(earliestTime, () => {
         // 加载完成后的回调
         this.isLoadingHistory = false;
-        console.log('历史数据加载完成');
       });
     }
   }
   
   // 检查是否接近最新位置
   checkIfNearLatestPosition() {
-    const threshold = 50; // 像素阈值
+    const threshold = 50;
     
     // 如果偏移量接近0，认为接近最新位置
     if (Math.abs(this.viewState.offsetX) < threshold) {
       if (!this.viewState.isAtLatestPosition) {
         this.viewState.isAtLatestPosition = true;
-        console.log('用户回到最新位置');
         
         // 通知外部组件用户已回到最新位置
         if (typeof this.options.onReturnToLatest === 'function') {
@@ -2195,8 +2061,6 @@ export class PixiChart {
   
   // 回到最新位置
   returnToLatest() {
-    console.log('执行回到最新位置');
-    
     // 重置视图状态
     this.viewState.offsetX = 0;
     this.viewState.offsetY = 0;
@@ -2217,8 +2081,6 @@ export class PixiChart {
     if (typeof this.options.onReturnToLatest === 'function') {
       this.options.onReturnToLatest();
     }
-    
-    console.log('已回到最新位置');
   }
   
   // 获取当前位置状态
@@ -2235,17 +2097,13 @@ export class PixiChart {
   // 设置历史数据加载阈值
   setHistoryLoadThreshold(threshold) {
     this.historyLoadThreshold = threshold;
-    console.log(`历史数据加载阈值设置为: ${threshold}px`);
   }
 
   // 添加历史数据的专用方法
   addHistoricalData(historicalDataArray) {
     if (!Array.isArray(historicalDataArray) || historicalDataArray.length === 0) {
-      console.warn('历史数据为空或格式不正确');
       return;
     }
-    
-    console.log(`开始添加 ${historicalDataArray.length} 条历史数据`);
     
     // 对历史数据按时间戳排序
     const sortedHistoricalData = historicalDataArray.sort((a, b) => a.timestamp - b.timestamp);
@@ -2260,10 +2118,7 @@ export class PixiChart {
     const validHistoricalData = sortedHistoricalData.filter(d => d.timestamp < currentEarliestTime);
     const futureData = sortedHistoricalData.filter(d => d.timestamp >= currentEarliestTime && d.timestamp <= currentLatestTime);
     
-    console.log(`有效历史数据: ${validHistoricalData.length} 条，重复数据: ${futureData.length} 条`);
-    
     if (validHistoricalData.length === 0) {
-      console.log('没有新的历史数据需要添加');
       return;
     }
     
@@ -2274,7 +2129,7 @@ export class PixiChart {
     this.data.sort((a, b) => a.timestamp - b.timestamp);
     
     // 限制数据数组的大小，防止内存溢出
-    const maxDataPoints = this.timeRange * 4 / 500; // 假设每500ms一个数据点，保留4倍时间范围的数据
+    const maxDataPoints = this.timeRange * 4 / 500;
     if (this.data.length > maxDataPoints) {
       this.data = this.data.slice(-maxDataPoints);
     }
@@ -2285,15 +2140,11 @@ export class PixiChart {
     // 重新绘制图表和网格
     this.drawChart();
     this.drawGrid();
-    
-    console.log(`历史数据添加完成，当前总数据点: ${this.data.length}`);
-    console.log(`数据时间范围: ${new Date(this.data[0].timestamp).toLocaleTimeString()} - ${new Date(this.data[this.data.length - 1].timestamp).toLocaleTimeString()}`);
   }
   
   // 检查数据完整性的方法
   validateDataIntegrity() {
     if (this.data.length === 0) {
-      console.log('数据为空');
       return true;
     }
     
@@ -2301,28 +2152,18 @@ export class PixiChart {
     let isTimeOrderCorrect = true;
     for (let i = 1; i < this.data.length; i++) {
       if (this.data[i].timestamp < this.data[i - 1].timestamp) {
-        console.error(`数据时间顺序错误: 索引 ${i - 1} (${new Date(this.data[i - 1].timestamp).toLocaleTimeString()}) > 索引 ${i} (${new Date(this.data[i].timestamp).toLocaleTimeString()})`);
         isTimeOrderCorrect = false;
       }
     }
     
-    if (isTimeOrderCorrect) {
-      console.log('✅ 数据时间顺序正确');
-    } else {
-      console.error('❌ 数据时间顺序存在问题');
+    if (!isTimeOrderCorrect) {
       // 自动修复时间顺序
       this.data.sort((a, b) => a.timestamp - b.timestamp);
-      console.log('🔧 已自动修复数据时间顺序');
     }
     
     // 检查是否有重复的时间戳
     const timestamps = this.data.map(d => d.timestamp);
     const uniqueTimestamps = new Set(timestamps);
-    if (timestamps.length !== uniqueTimestamps.size) {
-      console.warn(`⚠️ 发现重复时间戳: 总数据点 ${timestamps.length}, 唯一时间戳 ${uniqueTimestamps.size}`);
-    } else {
-      console.log('✅ 无重复时间戳');
-    }
     
     return isTimeOrderCorrect && timestamps.length === uniqueTimestamps.size;
   }
@@ -2331,7 +2172,6 @@ export class PixiChart {
   setSmoothFlowEnabled(enabled) {
     if (this.timeFlow) {
       this.timeFlow.smoothing = enabled;
-      console.log(`时间轴平滑流动效果已${enabled ? '启用' : '禁用'}`);
     }
   }
   
@@ -2344,181 +2184,6 @@ export class PixiChart {
   setSmoothFlowInterpolationFactor(factor) {
     if (this.timeFlow) {
       this.timeFlow.interpolationFactor = Math.max(0.001, Math.min(1, factor));
-      console.log(`时间轴平滑流动插值因子设置为: ${this.timeFlow.interpolationFactor}`);
     }
-  }
-  
-  // 新增：实时监控折线渲染状态
-  startDebugMonitor() {
-    if (this.debugMonitorInterval) {
-      clearInterval(this.debugMonitorInterval);
-    }
-    
-    this.debugMonitorInterval = setInterval(() => {
-      if (this.data.length > 0) {
-        const debugInfo = this.debugLineVisibility();
-        
-        // 检查是否存在渲染问题
-        const hasRenderingIssue = debugInfo.earliestX > 0 && debugInfo.dataCount > 10;
-        
-        if (hasRenderingIssue) {
-          console.warn('🚨 检测到折线渲染问题:', {
-            问题: '折线未到达左边缘就消失',
-            最早数据X坐标: debugInfo.earliestX.toFixed(1),
-            应该到达: '0或负数',
-            数据点数量: debugInfo.dataCount,
-            建议: '检查数据清理逻辑或timeRange设置'
-          });
-        }
-      }
-    }, 2000); // 每2秒检查一次
-    
-    console.log('📊 已启动折线渲染监控，每2秒检查一次');
-  }
-  
-  // 新增：停止调试监控
-  stopDebugMonitor() {
-    if (this.debugMonitorInterval) {
-      clearInterval(this.debugMonitorInterval);
-      this.debugMonitorInterval = null;
-      console.log('📊 已停止折线渲染监控');
-    }
-  }
-  
-  // 新增：实时监控折线渲染状态
-  debugLineVisibility() {
-    if (this.data.length === 0) {
-      return { earliestX: 0, latestX: 0, currentX: 0, fullRangeStartX: 0, dataCount: 0, timeSpan: 0 };
-    }
-    
-    const earliestData = this.data[0];
-    const latestData = this.data[this.data.length - 1];
-    
-    const earliestX = this.timeToX(earliestData.timestamp, Date.now(), this.options.width);
-    const latestX = this.timeToX(latestData.timestamp, Date.now(), this.options.width);
-    const currentX = this.timeToX(Date.now(), Date.now(), this.options.width);
-    const fullRangeStartX = this.timeToX(this.data[0].timestamp, Date.now(), this.options.width);
-    
-    return {
-      earliestX,
-      latestX,
-      currentX,
-      fullRangeStartX,
-      dataCount: this.data.length,
-      timeSpan: latestData - earliestData
-    };
-  }
-
-  // 新增：强化版实时调试工具
-  startAdvancedDebug() {
-    // 停止之前的监控
-    this.stopDebugMonitor();
-    
-    // 创建调试面板
-    if (!document.getElementById('pixi-debug-panel')) {
-      const panel = document.createElement('div');
-      panel.id = 'pixi-debug-panel';
-      panel.style.cssText = `
-        position: fixed;
-        top: 10px;
-        right: 10px;
-        width: 350px;
-        background: rgba(0,0,0,0.8);
-        color: white;
-        padding: 10px;
-        border-radius: 5px;
-        font-family: monospace;
-        font-size: 12px;
-        z-index: 10000;
-        max-height: 400px;
-        overflow-y: auto;
-      `;
-      document.body.appendChild(panel);
-    }
-    
-    const updateDebugPanel = () => {
-      const panel = document.getElementById('pixi-debug-panel');
-      if (!panel || this.data.length === 0) return;
-      
-      const currentTime = Date.now();
-      const chartWidth = this.options.width;
-      
-      // 计算关键坐标
-      const earliestData = this.data[0];
-      const latestData = this.data[this.data.length - 1];
-      const earliestX = this.timeToX(earliestData.timestamp, currentTime, chartWidth);
-      const latestX = this.timeToX(latestData.timestamp, currentTime, chartWidth);
-      const currentX = this.timeToX(currentTime, currentTime, chartWidth);
-      
-      // 计算时间跨度
-      const dataTimeSpan = latestData.timestamp - earliestData.timestamp;
-      const dataTimeSpanSeconds = (dataTimeSpan / 1000).toFixed(1);
-      
-      // 判断问题状态
-      const isLineComplete = earliestX <= 0;
-      const hasEnoughData = this.data.length > 10;
-      const dataAge = (currentTime - earliestData.timestamp) / 1000;
-      
-      panel.innerHTML = `
-        <h3>📊 PixiChart 实时调试</h3>
-        <div style="color: ${isLineComplete ? '#0f0' : '#f00'}">
-          状态: ${isLineComplete ? '✅ 折线完整' : '❌ 折线不完整'}
-        </div>
-        
-        <h4>📍 坐标信息</h4>
-        <div>最早数据 X: ${earliestX.toFixed(1)}px ${earliestX <= 0 ? '✅' : '❌'}</div>
-        <div>最新数据 X: ${latestX.toFixed(1)}px</div>
-        <div>当前时间 X: ${currentX.toFixed(1)}px</div>
-        <div>屏幕宽度: ${chartWidth}px</div>
-        
-        <h4>📈 数据信息</h4>
-        <div>数据点数量: ${this.data.length}</div>
-        <div>时间跨度: ${dataTimeSpanSeconds}秒</div>
-        <div>最早数据年龄: ${dataAge.toFixed(1)}秒</div>
-        <div>TimeRange: ${this.timeRange / 1000}秒</div>
-        
-        <h4>⚙️ 配置信息</h4>
-        <div>历史数据阈值: ${this.options.historicalDataThreshold / 1000}秒</div>
-        <div>用户是否拖动: ${this.viewState.hasUserDraggedLeft ? '是' : '否'}</div>
-        <div>缩放级别: ${this.viewState.scaleX.toFixed(2)}</div>
-        <div>偏移量: ${this.viewState.offsetX.toFixed(1)}px</div>
-        
-        <h4>🔧 建议操作</h4>
-        ${!isLineComplete ? `
-          <div style="color: #ff0;">
-            问题: 折线未到达左边缘<br>
-            原因: 数据不足或被过滤<br>
-            <button onclick="chart.enableHistoricalData()" style="margin: 2px;">启用历史数据</button><br>
-            <button onclick="chart.setHistoricalDataThreshold(300000)" style="margin: 2px;">增加阈值到5分钟</button><br>
-            <button onclick="console.log('数据详情:', chart.data.slice(0,5))" style="margin: 2px;">查看数据详情</button>
-          </div>
-        ` : '<div style="color: #0f0;">折线显示正常 ✅</div>'}
-        
-        <button onclick="chart.stopAdvancedDebug()" style="margin-top: 10px; background: #f44; color: white; border: none; padding: 5px;">关闭调试</button>
-      `;
-    };
-    
-    // 立即更新一次
-    updateDebugPanel();
-    
-    // 设置定时更新
-    this.advancedDebugInterval = setInterval(updateDebugPanel, 1000);
-    
-    console.log('🔧 已启动强化版调试面板');
-  }
-  
-  // 新增：停止强化版调试
-  stopAdvancedDebug() {
-    if (this.advancedDebugInterval) {
-      clearInterval(this.advancedDebugInterval);
-      this.advancedDebugInterval = null;
-    }
-    
-    const panel = document.getElementById('pixi-debug-panel');
-    if (panel) {
-      panel.remove();
-    }
-    
-    console.log('🔧 已关闭强化版调试面板');
   }
 } 
