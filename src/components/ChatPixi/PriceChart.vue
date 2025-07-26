@@ -81,10 +81,6 @@
           <span>📊</span>
           <span>Y轴动画</span>
         </button>
-        <button @click="resetPriceRange" class="control-btn">
-          <span>🎯</span>
-          <span>重置范围</span>
-        </button>
       </div>
     </div>
     
@@ -455,13 +451,6 @@ function toggleYAxisAnimation() {
   yAxisAnimationEnabled.value = !yAxisAnimationEnabled.value;
   if (pixiChart) {
     pixiChart.setYAxisAnimationEnabled(yAxisAnimationEnabled.value);
-  }
-}
-
-function resetPriceRange() {
-  if (pixiChart) {
-    pixiChart.resetPriceRangeToTight();
-    console.log('价格范围已重置到紧凑模式');
   }
 }
 
@@ -888,23 +877,6 @@ defineExpose({
   },
   isYAxisAnimationEnabled: () => {
     return yAxisAnimationEnabled.value;
-  },
-  // 价格范围控制方法
-  resetPriceRange: () => {
-    if (pixiChart) {
-      pixiChart.resetPriceRangeToTight();
-    }
-  },
-  setPriceRangeSensitivity: (mode) => {
-    if (pixiChart) {
-      pixiChart.setPriceRangeSensitivity(mode);
-    }
-  },
-  getPriceRangeStats: () => {
-    if (pixiChart) {
-      return pixiChart.getPriceRangeStats();
-    }
-    return null;
   }
 });
 </script>
