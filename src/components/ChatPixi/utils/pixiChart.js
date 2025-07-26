@@ -7,6 +7,27 @@ import * as PIXI from 'pixi.js';
  * - 平滑时间轴流动效果：解决x轴"一跳一跳"的问题
  * - 优化网格更新机制：提供60fps的流畅更新
  * - 智能更新策略：根据用户交互状态调整更新频率
+ * - 动态价格范围控制：让折线起伏变化更明显
+ * 
+ * 价格范围控制使用示例：
+ * 
+ * // 创建图表时配置价格范围敏感度
+ * const chart = new PixiChart(container, {
+ *   priceRangeSensitivity: 'high', // 'low', 'medium', 'high'
+ *   priceRangeTimeWindowRatio: 0.2, // 使用更短的时间窗口（20%）
+ *   maxPriceRangeTimeWindow: 10000, // 最大10秒的数据
+ *   minPriceRange: 0.3, // 最小价格范围
+ *   dynamicPriceRangeEnabled: true // 启用动态价格范围
+ * });
+ * 
+ * // 运行时动态调整
+ * chart.setPriceRangeSensitivity('high'); // 提高敏感度让变化更明显
+ * chart.setPriceRangeTimeWindowRatio(0.15); // 使用更短的时间窗口
+ * chart.setMinPriceRange(0.2); // 设置更小的最小范围
+ * 
+ * // 获取当前配置
+ * const config = chart.getPriceRangeConfig();
+ * console.log('当前价格范围:', config.currentRange);
  */
 
 export class PixiChart {
@@ -22,7 +43,7 @@ export class PixiChart {
       latestPointColor: options.latestPointColor || 0xff4444,
       textColor: options.textColor || 0xcccccc,
       latestPriceLineColor: options.latestPriceLineColor || 0xff4444,
-      animationDuration: options.animationDuration || 200,
+      animationDuration: options.animationDuration || 300,
       animationEasing: options.animationEasing || 'easeOutCubic',
       animationEnabled: options.animationEnabled || true,
       showLatestPriceLine: options.showLatestPriceLine !== false,
@@ -34,6 +55,12 @@ export class PixiChart {
       showFutureTimeLine: options.showFutureTimeLine !== false,
       onLoadMoreHistory: options.onLoadMoreHistory || null,
       onReturnToLatest: options.onReturnToLatest || null,
+      // 价格范围相关配置
+      priceRangeTimeWindowRatio: options.priceRangeTimeWindowRatio || 0.3, // 正常模式下使用的时间窗口比例
+      maxPriceRangeTimeWindow: options.maxPriceRangeTimeWindow || 15000, // 最大时间窗口（毫秒）
+      minPriceRange: options.minPriceRange || 0.5, // 最小价格范围
+      dynamicPriceRangeEnabled: options.dynamicPriceRangeEnabled !== false, // 是否启用动态价格范围
+      priceRangeSensitivity: options.priceRangeSensitivity || 'medium', // 价格范围敏感度：'low', 'medium', 'high'
       ...options
     };
     
@@ -578,14 +605,81 @@ export class PixiChart {
     if (this.data.length === 0) return;
     
     const currentTime = Date.now();
-    const recentData = this.data.filter(d => (currentTime - d.timestamp) <= this.timeRange);
+    
+    // 使用更短的时间窗口来计算价格范围，让变化更明显
+    // 根据用户是否拖拽来动态调整时间窗口
+    let priceRangeTimeWindow;
+    if (this.viewState.hasUserDraggedLeft) {
+      // 用户拖拽查看历史数据时，使用可见时间范围
+      priceRangeTimeWindow = this.timeRange / this.viewState.scaleX;
+    } else {
+      // 正常查看最新数据时，使用配置的时间窗口让变化更明显
+      priceRangeTimeWindow = Math.min(
+        this.timeRange * this.options.priceRangeTimeWindowRatio, 
+        this.options.maxPriceRangeTimeWindow
+      );
+    }
+    
+    const recentData = this.data.filter(d => (currentTime - d.timestamp) <= priceRangeTimeWindow);
     
     if (recentData.length === 0) return;
     
     const prices = recentData.map(d => d.price);
     const min = Math.min(...prices);
     const max = Math.max(...prices);
-    const padding = (max - min) * 0.3 || 2; // 增大padding到30%，至少2的padding
+    
+    // 动态调整padding：价格变化小时使用更大的padding让图表更敏感
+    const priceSpread = max - min;
+    let padding;
+    
+    if (this.options.dynamicPriceRangeEnabled) {
+      // 根据敏感度配置调整padding策略
+      const sensitivity = this.options.priceRangeSensitivity;
+      
+      if (priceSpread < this.options.minPriceRange) {
+        // 价格变化很小时，根据敏感度设置不同的最小范围
+        switch (sensitivity) {
+          case 'high':
+            padding = Math.max(0.8, priceSpread * 3); // 高敏感度：更大的放大倍数
+            break;
+          case 'low':
+            padding = Math.max(0.3, priceSpread * 1.5); // 低敏感度：较小的放大倍数
+            break;
+          default: // medium
+            padding = Math.max(0.5, priceSpread * 2); // 中等敏感度
+        }
+      } else if (priceSpread < 2) {
+        // 价格变化中等时
+        switch (sensitivity) {
+          case 'high':
+            padding = priceSpread * 0.8; // 高敏感度：更大的padding
+            break;
+          case 'low':
+            padding = priceSpread * 0.3; // 低敏感度：较小的padding
+            break;
+          default: // medium
+            padding = priceSpread * 0.5; // 中等敏感度
+        }
+      } else {
+        // 价格变化较大时
+        switch (sensitivity) {
+          case 'high':
+            padding = priceSpread * 0.3; // 高敏感度：保持较大的padding
+            break;
+          case 'low':
+            padding = priceSpread * 0.1; // 低敏感度：很小的padding
+            break;
+          default: // medium
+            padding = priceSpread * 0.2; // 中等敏感度
+        }
+      }
+      
+      // 确保最小padding，避免图表过于平坦
+      padding = Math.max(padding, this.options.minPriceRange * 0.5);
+    } else {
+      // 传统的固定padding策略
+      padding = (max - min) * 0.3 || 2;
+    }
     
     this.priceRange.min = min - padding;
     this.priceRange.max = max + padding;
@@ -744,6 +838,29 @@ export class PixiChart {
     // 更新动画状态
     const wasAnimating = this.animationState.isAnimating;
     this.updateAnimation();
+    
+    // 定期更新价格范围以保持图表敏感度
+    if (!this.lastPriceRangeUpdate) {
+      this.lastPriceRangeUpdate = currentTime;
+    }
+    
+    // 每2秒更新一次价格范围，或者在有新数据时立即更新
+    const priceRangeUpdateInterval = 2000; // 2秒
+    const shouldUpdatePriceRange = (currentTime - this.lastPriceRangeUpdate) >= priceRangeUpdateInterval;
+    
+    if (shouldUpdatePriceRange && this.data.length > 0 && !this.updateStrategy.isDragging) {
+      const oldPriceRange = { ...this.priceRange };
+      this.updatePriceRange();
+      
+      // 检查价格范围是否有显著变化
+      const rangeChanged = Math.abs(oldPriceRange.min - this.priceRange.min) > 0.01 || 
+                          Math.abs(oldPriceRange.max - this.priceRange.max) > 0.01;
+      
+      if (rangeChanged) {
+        // 价格范围发生变化，标记需要重绘
+        this.lastPriceRangeUpdate = currentTime;
+      }
+    }
     
     // 优化网格更新策略 - 实现平滑的时间流动效果
     const shouldUpdateGrid = this.shouldUpdateGrid(currentTime);
@@ -2185,5 +2302,78 @@ export class PixiChart {
     if (this.timeFlow) {
       this.timeFlow.interpolationFactor = Math.max(0.001, Math.min(1, factor));
     }
+  }
+  
+  // 价格范围控制方法
+  
+  // 设置价格范围敏感度
+  setPriceRangeSensitivity(sensitivity) {
+    const validSensitivities = ['low', 'medium', 'high'];
+    if (validSensitivities.includes(sensitivity)) {
+      this.options.priceRangeSensitivity = sensitivity;
+      this.updatePriceRange();
+      this.drawChart();
+    }
+  }
+  
+  // 获取当前价格范围敏感度
+  getPriceRangeSensitivity() {
+    return this.options.priceRangeSensitivity;
+  }
+  
+  // 设置价格范围时间窗口比例
+  setPriceRangeTimeWindowRatio(ratio) {
+    this.options.priceRangeTimeWindowRatio = Math.max(0.1, Math.min(1, ratio));
+    this.updatePriceRange();
+    this.drawChart();
+  }
+  
+  // 设置最大价格范围时间窗口
+  setMaxPriceRangeTimeWindow(timeWindow) {
+    this.options.maxPriceRangeTimeWindow = Math.max(1000, timeWindow);
+    this.updatePriceRange();
+    this.drawChart();
+  }
+  
+  // 设置最小价格范围
+  setMinPriceRange(minRange) {
+    this.options.minPriceRange = Math.max(0.1, minRange);
+    this.updatePriceRange();
+    this.drawChart();
+  }
+  
+  // 启用/禁用动态价格范围
+  setDynamicPriceRangeEnabled(enabled) {
+    this.options.dynamicPriceRangeEnabled = enabled;
+    this.updatePriceRange();
+    this.drawChart();
+  }
+  
+  // 获取价格范围配置信息
+  getPriceRangeConfig() {
+    return {
+      sensitivity: this.options.priceRangeSensitivity,
+      timeWindowRatio: this.options.priceRangeTimeWindowRatio,
+      maxTimeWindow: this.options.maxPriceRangeTimeWindow,
+      minRange: this.options.minPriceRange,
+      dynamicEnabled: this.options.dynamicPriceRangeEnabled,
+      currentRange: {
+        min: this.priceRange.min,
+        max: this.priceRange.max,
+        spread: this.priceRange.max - this.priceRange.min
+      }
+    };
+  }
+  
+  // 重置价格范围为默认设置
+  resetPriceRangeConfig() {
+    this.options.priceRangeSensitivity = 'medium';
+    this.options.priceRangeTimeWindowRatio = 0.3;
+    this.options.maxPriceRangeTimeWindow = 15000;
+    this.options.minPriceRange = 0.5;
+    this.options.dynamicPriceRangeEnabled = true;
+    
+    this.updatePriceRange();
+    this.drawChart();
   }
 } 
