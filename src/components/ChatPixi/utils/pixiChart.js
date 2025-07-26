@@ -22,7 +22,7 @@ export class PixiChart {
       latestPointColor: options.latestPointColor || 0xff4444,
       textColor: options.textColor || 0xcccccc,
       latestPriceLineColor: options.latestPriceLineColor || 0xff4444,
-      animationDuration: options.animationDuration || 300,
+      animationDuration: options.animationDuration || 200,
       animationEasing: options.animationEasing || 'easeOutCubic',
       animationEnabled: options.animationEnabled || true,
       showLatestPriceLine: options.showLatestPriceLine !== false,
@@ -329,8 +329,8 @@ export class PixiChart {
     const height = this.options.height;
     const currentTime = Date.now();
     
-    // 最新时间在四分之三处
-    const latestTimeX = width * 0.75;
+    // 最新时间在右边缘，与折线图保持一致
+    const latestTimeX = width; // 改为100%，即右边缘
     
     // 设置网格样式
     this.gridGraphics.lineStyle(1, this.options.gridColor, 0.3);
@@ -346,10 +346,10 @@ export class PixiChart {
     // 绘制垂直网格线（时间轴）- 使用与折线图数据完全相同的坐标转换逻辑
     const numTimeLines = Math.ceil(width / timeGridSpacing) + 4; // 增加网格线数量确保覆盖
     
-    // 计算当前可见的时间范围，以覆盖整个图表宽度 - 与折线图使用相同的时间范围计算
+    // 计算当前可见的时间范围，过去数据占满整个屏幕宽度
     const visibleTimeRange = this.timeRange / this.viewState.scaleX;
-    const visibleTimeStart = currentTime - visibleTimeRange * 0.75; // 75% of time is in the past
-    const visibleTimeEnd = currentTime + visibleTimeRange * 0.25;   // 25% of time is in the future
+    const visibleTimeStart = currentTime - visibleTimeRange; // 过去数据从最早时间开始
+    const visibleTimeEnd = currentTime; // 到当前时间结束
     
     // 优化网格线生成 - 使用更小的时间间隔以实现更平滑的流动效果
     const smoothTimeInterval = Math.max(100, timeInterval / 5); // 使用更小的间隔，确保平滑流动
@@ -451,26 +451,8 @@ export class PixiChart {
     const currentTime = Date.now();
     const chartWidth = this.options.width;
     
-    // 根据缩放级别调整可见时间范围 - 与网格使用完全相同的计算逻辑
-    const adjustedTimeRange = this.timeRange / this.viewState.scaleX;
-    
-    // 获取可见数据，考虑缩放和偏移 - 与网格使用相同的视图状态
-    let visibleData = this.data.filter(point => {
-      const timeDiff = currentTime - point.timestamp;
-      const timeOffset = -this.viewState.offsetX / this.viewState.scaleX / chartWidth * this.timeRange;
-      return timeDiff >= timeOffset && timeDiff <= adjustedTimeRange + timeOffset;
-    });
-    
-    // 如果用户还没有向左拖动，过滤掉历史数据
-    if (!this.viewState.hasUserDraggedLeft) {
-      const historicalThreshold = this.options.historicalDataThreshold;
-      visibleData = visibleData.filter(point => {
-        const timeDiff = currentTime - point.timestamp;
-        return timeDiff <= historicalThreshold;
-      });
-      
-      // console.log(`历史数据过滤: 总数据点=${this.data.length}, 可见数据点=${visibleData.length}, 阈值=${historicalThreshold}ms`);
-    }
+    // 使用所有数据确保折线连续性，不进行任何过滤
+    let visibleData = this.data;
     
     if (visibleData.length === 0) return;
     
@@ -507,23 +489,21 @@ export class PixiChart {
       drawToIndex = visibleData.length - 2;
     }
     
-    // 绘制静态线段 - 使用与网格完全相同的坐标转换
+    // 绘制静态线段 - 移除可见性检查，确保折线连续性
     for (let i = 0; i <= drawToIndex; i++) {
       const point = visibleData[i];
       // 确保使用与网格相同的坐标转换方法
       const x = this.timeToX(point.timestamp, currentTime, chartWidth);
       const y = this.priceToY(point.price);
       
-      // 优化可见性检查
-      if (this.isPointVisible(x, y)) {
-        if (isFirstPoint) {
-          this.lineGraphics.moveTo(x, y);
-          isFirstPoint = false;
-        } else {
-          this.lineGraphics.lineTo(x, y);
-        }
-        lastDrawnPoint = { x, y };
+      // 不进行可见性检查，直接绘制所有点确保折线连续
+      if (isFirstPoint) {
+        this.lineGraphics.moveTo(x, y);
+        isFirstPoint = false;
+      } else {
+        this.lineGraphics.lineTo(x, y);
       }
+      lastDrawnPoint = { x, y };
     }
     
     // 处理动画线段
@@ -696,8 +676,10 @@ export class PixiChart {
       this.drawChart();
     }
     
-    // 保持数据在合理范围内
-    const cutoffTime = Date.now() - this.timeRange * 2;
+    // 保持数据在合理范围内，但保留足够的数据确保折线完整显示
+    // 由于现在最新时间在右边缘(100%)，需要保留足够的历史数据让折线能显示到左边缘(0%)
+    // 增加保留时间到8倍timeRange，确保有足够的数据支持完整的屏幕宽度显示
+    const cutoffTime = Date.now() - this.timeRange * 8; // 从2倍增加到8倍
     this.data = this.data.filter(d => d.timestamp > cutoffTime);
     
     // 清理过期的标记点
@@ -1154,8 +1136,8 @@ export class PixiChart {
   
   // 统一的时间到X坐标转换方法
   timeToX(timestamp, currentTime, chartWidth) {
-    // 最新时间在四分之三处
-    const latestX = chartWidth * 0.75;
+    // 最新时间在右边缘，让过去数据从左侧边缘开始显示
+    const latestX = chartWidth; // 改为100%，即右边缘
     const timeDiff = currentTime - timestamp;
     const baseX = latestX - (timeDiff / this.timeRange) * chartWidth;
     
@@ -2364,5 +2346,179 @@ export class PixiChart {
       this.timeFlow.interpolationFactor = Math.max(0.001, Math.min(1, factor));
       console.log(`时间轴平滑流动插值因子设置为: ${this.timeFlow.interpolationFactor}`);
     }
+  }
+  
+  // 新增：实时监控折线渲染状态
+  startDebugMonitor() {
+    if (this.debugMonitorInterval) {
+      clearInterval(this.debugMonitorInterval);
+    }
+    
+    this.debugMonitorInterval = setInterval(() => {
+      if (this.data.length > 0) {
+        const debugInfo = this.debugLineVisibility();
+        
+        // 检查是否存在渲染问题
+        const hasRenderingIssue = debugInfo.earliestX > 0 && debugInfo.dataCount > 10;
+        
+        if (hasRenderingIssue) {
+          console.warn('🚨 检测到折线渲染问题:', {
+            问题: '折线未到达左边缘就消失',
+            最早数据X坐标: debugInfo.earliestX.toFixed(1),
+            应该到达: '0或负数',
+            数据点数量: debugInfo.dataCount,
+            建议: '检查数据清理逻辑或timeRange设置'
+          });
+        }
+      }
+    }, 2000); // 每2秒检查一次
+    
+    console.log('📊 已启动折线渲染监控，每2秒检查一次');
+  }
+  
+  // 新增：停止调试监控
+  stopDebugMonitor() {
+    if (this.debugMonitorInterval) {
+      clearInterval(this.debugMonitorInterval);
+      this.debugMonitorInterval = null;
+      console.log('📊 已停止折线渲染监控');
+    }
+  }
+  
+  // 新增：实时监控折线渲染状态
+  debugLineVisibility() {
+    if (this.data.length === 0) {
+      return { earliestX: 0, latestX: 0, currentX: 0, fullRangeStartX: 0, dataCount: 0, timeSpan: 0 };
+    }
+    
+    const earliestData = this.data[0];
+    const latestData = this.data[this.data.length - 1];
+    
+    const earliestX = this.timeToX(earliestData.timestamp, Date.now(), this.options.width);
+    const latestX = this.timeToX(latestData.timestamp, Date.now(), this.options.width);
+    const currentX = this.timeToX(Date.now(), Date.now(), this.options.width);
+    const fullRangeStartX = this.timeToX(this.data[0].timestamp, Date.now(), this.options.width);
+    
+    return {
+      earliestX,
+      latestX,
+      currentX,
+      fullRangeStartX,
+      dataCount: this.data.length,
+      timeSpan: latestData - earliestData
+    };
+  }
+
+  // 新增：强化版实时调试工具
+  startAdvancedDebug() {
+    // 停止之前的监控
+    this.stopDebugMonitor();
+    
+    // 创建调试面板
+    if (!document.getElementById('pixi-debug-panel')) {
+      const panel = document.createElement('div');
+      panel.id = 'pixi-debug-panel';
+      panel.style.cssText = `
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        width: 350px;
+        background: rgba(0,0,0,0.8);
+        color: white;
+        padding: 10px;
+        border-radius: 5px;
+        font-family: monospace;
+        font-size: 12px;
+        z-index: 10000;
+        max-height: 400px;
+        overflow-y: auto;
+      `;
+      document.body.appendChild(panel);
+    }
+    
+    const updateDebugPanel = () => {
+      const panel = document.getElementById('pixi-debug-panel');
+      if (!panel || this.data.length === 0) return;
+      
+      const currentTime = Date.now();
+      const chartWidth = this.options.width;
+      
+      // 计算关键坐标
+      const earliestData = this.data[0];
+      const latestData = this.data[this.data.length - 1];
+      const earliestX = this.timeToX(earliestData.timestamp, currentTime, chartWidth);
+      const latestX = this.timeToX(latestData.timestamp, currentTime, chartWidth);
+      const currentX = this.timeToX(currentTime, currentTime, chartWidth);
+      
+      // 计算时间跨度
+      const dataTimeSpan = latestData.timestamp - earliestData.timestamp;
+      const dataTimeSpanSeconds = (dataTimeSpan / 1000).toFixed(1);
+      
+      // 判断问题状态
+      const isLineComplete = earliestX <= 0;
+      const hasEnoughData = this.data.length > 10;
+      const dataAge = (currentTime - earliestData.timestamp) / 1000;
+      
+      panel.innerHTML = `
+        <h3>📊 PixiChart 实时调试</h3>
+        <div style="color: ${isLineComplete ? '#0f0' : '#f00'}">
+          状态: ${isLineComplete ? '✅ 折线完整' : '❌ 折线不完整'}
+        </div>
+        
+        <h4>📍 坐标信息</h4>
+        <div>最早数据 X: ${earliestX.toFixed(1)}px ${earliestX <= 0 ? '✅' : '❌'}</div>
+        <div>最新数据 X: ${latestX.toFixed(1)}px</div>
+        <div>当前时间 X: ${currentX.toFixed(1)}px</div>
+        <div>屏幕宽度: ${chartWidth}px</div>
+        
+        <h4>📈 数据信息</h4>
+        <div>数据点数量: ${this.data.length}</div>
+        <div>时间跨度: ${dataTimeSpanSeconds}秒</div>
+        <div>最早数据年龄: ${dataAge.toFixed(1)}秒</div>
+        <div>TimeRange: ${this.timeRange / 1000}秒</div>
+        
+        <h4>⚙️ 配置信息</h4>
+        <div>历史数据阈值: ${this.options.historicalDataThreshold / 1000}秒</div>
+        <div>用户是否拖动: ${this.viewState.hasUserDraggedLeft ? '是' : '否'}</div>
+        <div>缩放级别: ${this.viewState.scaleX.toFixed(2)}</div>
+        <div>偏移量: ${this.viewState.offsetX.toFixed(1)}px</div>
+        
+        <h4>🔧 建议操作</h4>
+        ${!isLineComplete ? `
+          <div style="color: #ff0;">
+            问题: 折线未到达左边缘<br>
+            原因: 数据不足或被过滤<br>
+            <button onclick="chart.enableHistoricalData()" style="margin: 2px;">启用历史数据</button><br>
+            <button onclick="chart.setHistoricalDataThreshold(300000)" style="margin: 2px;">增加阈值到5分钟</button><br>
+            <button onclick="console.log('数据详情:', chart.data.slice(0,5))" style="margin: 2px;">查看数据详情</button>
+          </div>
+        ` : '<div style="color: #0f0;">折线显示正常 ✅</div>'}
+        
+        <button onclick="chart.stopAdvancedDebug()" style="margin-top: 10px; background: #f44; color: white; border: none; padding: 5px;">关闭调试</button>
+      `;
+    };
+    
+    // 立即更新一次
+    updateDebugPanel();
+    
+    // 设置定时更新
+    this.advancedDebugInterval = setInterval(updateDebugPanel, 1000);
+    
+    console.log('🔧 已启动强化版调试面板');
+  }
+  
+  // 新增：停止强化版调试
+  stopAdvancedDebug() {
+    if (this.advancedDebugInterval) {
+      clearInterval(this.advancedDebugInterval);
+      this.advancedDebugInterval = null;
+    }
+    
+    const panel = document.getElementById('pixi-debug-panel');
+    if (panel) {
+      panel.remove();
+    }
+    
+    console.log('🔧 已关闭强化版调试面板');
   }
 } 
