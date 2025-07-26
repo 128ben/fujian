@@ -82,6 +82,7 @@ export class PixiChart {
     this.timeRange = 60000;
     this.priceRange = { min: 95, max: 105 };
     this.targetPriceRange = { min: 95, max: 105 }; // 目标价格范围
+    this.priceRangeSensitivityMode = 'auto'; // 价格范围敏感度模式
     this.startTime = Date.now();
     
     // 网格更新控制
@@ -593,18 +594,85 @@ export class PixiChart {
     if (this.data.length === 0) return;
     
     const currentTime = Date.now();
-    const recentData = this.data.filter(d => (currentTime - d.timestamp) <= this.timeRange);
     
-    if (recentData.length === 0) return;
+    // 使用多层时间窗口策略，优先考虑近期数据
+    const shortTermData = this.data.filter(d => (currentTime - d.timestamp) <= 15000); // 15秒
+    const mediumTermData = this.data.filter(d => (currentTime - d.timestamp) <= 30000); // 30秒
+    const longTermData = this.data.filter(d => (currentTime - d.timestamp) <= this.timeRange); // 60秒
     
-    const prices = recentData.map(d => d.price);
+    let targetData = shortTermData;
+    
+    // 根据数据量选择合适的时间窗口
+    if (shortTermData.length < 10 && mediumTermData.length >= 10) {
+      targetData = mediumTermData;
+    } else if (shortTermData.length < 10 && mediumTermData.length < 10 && longTermData.length > 0) {
+      targetData = longTermData;
+    }
+    
+    if (targetData.length === 0) return;
+    
+    const prices = targetData.map(d => d.price);
     const min = Math.min(...prices);
     const max = Math.max(...prices);
-    const padding = (max - min) * 0.3 || 2; // 增大padding到30%，至少2的padding
+    const range = max - min;
+    
+    // 智能padding策略：避免范围过度扩大
+    let padding;
+    const sensitivityMode = this.priceRangeSensitivityMode || 'auto';
+    
+    if (sensitivityMode === 'high') {
+      // 高敏感度：使用小padding，保持视觉变化明显
+      padding = Math.max(0.2, range * 0.1);
+    } else if (sensitivityMode === 'medium') {
+      // 中等敏感度：使用中等padding
+      padding = Math.max(0.3, range * 0.2);
+    } else if (sensitivityMode === 'low') {
+      // 低敏感度：使用大padding，减少视觉波动
+      padding = Math.max(0.5, range * 0.4);
+    } else {
+      // 自动模式：根据范围大小智能调整
+      if (range < 1) {
+        // 小范围波动：使用固定padding保证最小可视范围
+        padding = Math.max(0.5, range * 0.5);
+      } else if (range < 5) {
+        // 中等范围波动：使用适中的比例padding
+        padding = range * 0.25;
+      } else {
+        // 大范围波动：使用较小的比例padding，避免过度放大
+        padding = Math.min(range * 0.15, 3); // 最大padding限制为3
+      }
+    }
+    
+    // 渐进式范围调整：避免Y轴范围突然跳跃
+    let newMin = min - padding;
+    let newMax = max + padding;
+    
+    // 如果当前已有价格范围，进行平滑过渡
+    if (this.targetPriceRange && this.targetPriceRange.min !== undefined) {
+      const currentRange = this.targetPriceRange.max - this.targetPriceRange.min;
+      const newRange = newMax - newMin;
+      
+      // 如果新范围比当前范围小很多，进行渐进收缩
+      if (newRange < currentRange * 0.7) {
+        const shrinkFactor = 0.9; // 每次收缩10%
+        const targetMin = this.targetPriceRange.min + (newMin - this.targetPriceRange.min) * shrinkFactor;
+        const targetMax = this.targetPriceRange.max + (newMax - this.targetPriceRange.max) * shrinkFactor;
+        newMin = targetMin;
+        newMax = targetMax;
+      }
+      // 如果新范围比当前范围大很多，进行渐进扩展
+      else if (newRange > currentRange * 1.3) {
+        const expandFactor = 0.3; // 每次扩展30%
+        const targetMin = this.targetPriceRange.min + (newMin - this.targetPriceRange.min) * expandFactor;
+        const targetMax = this.targetPriceRange.max + (newMax - this.targetPriceRange.max) * expandFactor;
+        newMin = targetMin;
+        newMax = targetMax;
+      }
+    }
     
     const newTargetRange = {
-      min: min - padding,
-      max: max + padding
+      min: newMin,
+      max: newMax
     };
     
     // 检查是否需要启动Y轴动画
@@ -622,6 +690,19 @@ export class PixiChart {
     // 如果动画未启用，直接更新价格范围
     if (!this.options.yAxisAnimationEnabled) {
       this.priceRange = { ...newTargetRange };
+    }
+    
+    // 调试信息（可选）
+    if (Math.random() < 0.01) { // 1%概率输出调试信息
+      console.log('📊 价格范围更新:', {
+        数据点数量: targetData.length,
+        时间窗口: targetData === shortTermData ? '15秒' : targetData === mediumTermData ? '30秒' : '60秒',
+        价格范围: `${min.toFixed(2)} - ${max.toFixed(2)}`,
+        原始范围宽度: range.toFixed(2),
+        Padding: padding.toFixed(2),
+        最终范围: `${newMin.toFixed(2)} - ${newMax.toFixed(2)}`,
+        最终范围宽度: (newMax - newMin).toFixed(2)
+      });
     }
   }
   
@@ -2342,5 +2423,100 @@ export class PixiChart {
     this.priceRange = { ...this.targetPriceRange };
     this.drawChart();
     this.drawGrid();
+  }
+  
+  // 价格范围敏感度控制方法
+  
+  // 设置价格范围敏感度模式
+  setPriceRangeSensitivity(mode) {
+    // mode: 'high' | 'medium' | 'low' | 'auto'
+    this.priceRangeSensitivityMode = mode || 'auto';
+    
+    // 立即重新计算价格范围
+    this.updatePriceRange();
+  }
+  
+  // 获取当前价格范围敏感度模式
+  getPriceRangeSensitivity() {
+    return this.priceRangeSensitivityMode || 'auto';
+  }
+  
+  // 重置价格范围到当前数据的紧凑范围
+  resetPriceRangeToTight() {
+    if (this.data.length === 0) return;
+    
+    const currentTime = Date.now();
+    const recentData = this.data.filter(d => (currentTime - d.timestamp) <= 15000); // 使用15秒内的数据
+    
+    if (recentData.length === 0) return;
+    
+    const prices = recentData.map(d => d.price);
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
+    const range = max - min;
+    
+    // 使用紧凑的padding
+    const padding = Math.max(0.2, range * 0.1);
+    
+    const tightRange = {
+      min: min - padding,
+      max: max + padding
+    };
+    
+    // 强制更新到紧凑范围
+    this.targetPriceRange = { ...tightRange };
+    this.priceRange = { ...tightRange };
+    
+    // 重新绘制
+    this.drawChart();
+    this.drawGrid();
+    
+    console.log('🎯 价格范围已重置为紧凑模式:', {
+      范围: `${tightRange.min.toFixed(2)} - ${tightRange.max.toFixed(2)}`,
+      宽度: (tightRange.max - tightRange.min).toFixed(2)
+    });
+  }
+  
+  // 获取价格范围统计信息
+  getPriceRangeStats() {
+    if (this.data.length === 0) {
+      return { message: '无数据' };
+    }
+    
+    const currentTime = Date.now();
+    const shortTermData = this.data.filter(d => (currentTime - d.timestamp) <= 15000);
+    const mediumTermData = this.data.filter(d => (currentTime - d.timestamp) <= 30000);
+    const longTermData = this.data.filter(d => (currentTime - d.timestamp) <= this.timeRange);
+    
+    const getStatsForData = (data, label) => {
+      if (data.length === 0) return null;
+      const prices = data.map(d => d.price);
+      return {
+        label,
+        dataPoints: data.length,
+        min: Math.min(...prices),
+        max: Math.max(...prices),
+        range: Math.max(...prices) - Math.min(...prices),
+        latest: prices[prices.length - 1]
+      };
+    };
+    
+    return {
+      current: {
+        min: this.priceRange.min,
+        max: this.priceRange.max,
+        width: this.priceRange.max - this.priceRange.min
+      },
+      target: {
+        min: this.targetPriceRange.min,
+        max: this.targetPriceRange.max,
+        width: this.targetPriceRange.max - this.targetPriceRange.min
+      },
+      shortTerm: getStatsForData(shortTermData, '15秒'),
+      mediumTerm: getStatsForData(mediumTermData, '30秒'),
+      longTerm: getStatsForData(longTermData, '60秒'),
+      sensitivityMode: this.getPriceRangeSensitivity(),
+      isAnimating: this.yAxisAnimationState.isAnimating
+    };
   }
 } 
