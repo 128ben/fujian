@@ -1731,16 +1731,28 @@ export class PixiChart {
         const markerFutureTime = marker.timestamp + futureTimeOffset;
         const markerFutureX = this.timeToX(markerFutureTime, currentTime, chartWidth);
         
-        // 计算折线端点位置
-        const endPointX = this.timeToX(currentTime, currentTime, chartWidth); // 当前时间对应的X坐标
+        // 使用实际的折线端点位置，而不是当前时间位置
+        let endPointX;
+        if (this.lastEndPoint && this.lastEndPoint.x !== undefined) {
+          // 使用实际的折线端点X坐标
+          endPointX = this.lastEndPoint.x;
+        } else {
+          // 如果没有折线端点，则使用当前时间对应的X坐标作为后备
+          endPointX = this.timeToX(currentTime, currentTime, chartWidth);
+        }
         
-        // 检查竖线是否与折线端点相遇（允许一定的误差范围）
-        const meetingThreshold = 1; // 像素阈值
+        // 检查竖线是否与最新节点（折线端点）相遇（允许一定的误差范围）
+        const meetingThreshold = 2; // 稍微增加像素阈值以确保准确检测
         const isMarkerLineMeetingEndPoint = Math.abs(markerFutureX - endPointX) <= meetingThreshold;
         
-        // 如果竖线与折线端点相遇，标记为需要移除
+        // 如果竖线与最新节点相遇，标记为需要移除
         if (isMarkerLineMeetingEndPoint) {
           markersToRemove.push(marker.id);
+          console.log(`标记点 ${marker.id} 的竖线与最新节点交汇，准备移除`, {
+            竖线X坐标: markerFutureX.toFixed(2),
+            折线端点X坐标: endPointX.toFixed(2),
+            距离差: Math.abs(markerFutureX - endPointX).toFixed(2)
+          });
         }
       }
     });
@@ -1797,14 +1809,16 @@ export class PixiChart {
           
           // 如果黄色时间轴可见，绘制连接线
           if (isTimeLineVisible) {
-            // 绘制从标记点到竖线位置的连接线
-            this.markerGraphics.lineStyle(1, marker.color, 0.6);
-            
             // 检查竖线是否在可视范围内
             if (markerFutureX >= -50 && markerFutureX <= chartWidth + 50) {
-              // 从标记点开始绘制横线到竖线位置
-              this.markerGraphics.moveTo(x, y);
-              this.markerGraphics.lineTo(markerFutureX, y);
+              // 绘制从标记点到竖线的完整水平连接线
+              const startX = x; // 从标记点位置开始
+              const endX = markerFutureX; // 到竖线位置结束
+              
+              // 绘制水平连接线，使用统一透明度
+              this.markerGraphics.lineStyle(1, marker.color, 1.0);
+              this.markerGraphics.moveTo(startX, y);
+              this.markerGraphics.lineTo(endX, y);
             }
           }
         }
@@ -1948,7 +1962,7 @@ export class PixiChart {
         if (!marker.isRandom) {
           // 绘制标记点对应的竖线
           const lineGraphics = new PIXI.Graphics();
-          lineGraphics.lineStyle(1, marker.color, 0.6); // 使用标记点相同的颜色，透明度0.6
+          lineGraphics.lineStyle(1, marker.color, 1.0); // 使用标记点相同的颜色，透明度1.0
           
           // 检查竖线是否在可视范围内
           if (markerFutureX >= -50 && markerFutureX <= chartWidth + 50) {
