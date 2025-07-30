@@ -348,7 +348,7 @@ function initializeChart() {
     pointColor: 0xffffff,
     latestPointColor: 0xff4444,
     animationDuration: 300, // 与数据更新频率协调
-    animationEnabled: false,
+    animationEnabled: true, // 启用动画
     timeFlowSmoothing: false, // 禁用时间流平滑，防止折线回跳
     enableRandomMarkers: props.enableRandomMarkers,
     randomMarkerInterval: props.randomMarkerInterval,

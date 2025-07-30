@@ -857,6 +857,28 @@ export class PixiChart {
         this.data.push(cleanData);
       });
       
+      // 如果启用动画且有新数据点，触发动画
+      if (this.options.animationEnabled && stableData.length > 0 && this.data.length >= 2) {
+        const currentTime = this.renderTimeBase.currentTime;
+        const chartWidth = this.options.width - 100;
+        
+        // 获取最后两个数据点来计算动画
+        const fromDataPoint = this.data[this.data.length - 2];
+        const toDataPoint = this.data[this.data.length - 1];
+        
+        // 计算屏幕坐标
+        const fromX = this.timeToX(fromDataPoint.timestamp, currentTime, chartWidth);
+        const fromY = this.priceToY(fromDataPoint.price);
+        const toX = this.timeToX(toDataPoint.timestamp, currentTime, chartWidth);
+        const toY = this.priceToY(toDataPoint.price);
+        
+        // 启动动画
+        this.startLineAnimation(
+          { x: fromX, y: fromY },
+          { x: toX, y: toY }
+        );
+      }
+      
       // 更新价格范围
       this.updatePriceRange();
       
@@ -866,8 +888,10 @@ export class PixiChart {
       // 更新时间基准
       this.updateRenderTimeBase();
       
-      // 重绘图表
-      this.drawChart();
+      // 如果没有动画，立即重绘图表；否则让动画系统处理重绘
+      if (!this.options.animationEnabled || !this.animationState.isAnimating) {
+        this.drawChart();
+      }
       
       // 数据截断逻辑
       this.performDataCleanup();
