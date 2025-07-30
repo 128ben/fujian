@@ -331,8 +331,9 @@ function initializeChart() {
     lineColor: 0x00aaff,
     pointColor: 0xffffff,
     latestPointColor: 0xff4444,
-    animationDuration: 500, // 与数据更新频率协调
+    animationDuration: 300, // 与数据更新频率协调
     animationEnabled: false,
+    timeFlowSmoothing: false, // 禁用时间流平滑，防止折线回跳
     enableRandomMarkers: props.enableRandomMarkers,
     randomMarkerInterval: props.randomMarkerInterval,
     // 新增：未来时间线配置
@@ -851,6 +852,29 @@ defineExpose({
   },
   isFutureTimeLineVisible: () => {
     return showFutureTimeLine.value;
+  },
+  // 时间流平滑控制
+  setTimeFlowSmoothing: (enabled) => {
+    if (pixiChart) {
+      pixiChart.setTimeFlowSmoothing(enabled);
+    }
+  },
+  isTimeFlowSmoothingEnabled: () => {
+    return pixiChart ? pixiChart.isTimeFlowSmoothingEnabled() : false;
+  },
+  updateTimeBase: () => {
+    if (pixiChart) {
+      pixiChart.updateTimeBase();
+    }
+  },
+  // 价格范围控制
+  forceUpdatePriceRange: () => {
+    if (pixiChart) {
+      pixiChart.forceUpdatePriceRange();
+    }
+  },
+  getCurrentPriceRange: () => {
+    return pixiChart ? pixiChart.getCurrentPriceRange() : null;
   }
 });
 </script>

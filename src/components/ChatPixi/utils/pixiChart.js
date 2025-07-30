@@ -120,7 +120,7 @@ export class PixiChart {
     
     // 时间流动相关配置
     this.timeFlow = {
-      smoothing: true,
+      smoothing: options.timeFlowSmoothing !== false, // 默认启用，但可以通过配置禁用
       lastUpdateTime: Date.now(),
       interpolationFactor: 0.016
     };
@@ -138,6 +138,14 @@ export class PixiChart {
     // 历史数据加载管理
     this.historyLoadThreshold = 200;
     this.isLoadingHistory = false;
+    
+    // 统一的时间基准管理，确保同一渲染周期内使用相同的时间
+    this.renderTimeBase = {
+      currentTime: Date.now(),
+      lastUpdateTime: Date.now(),
+      updateInterval: 16 // 约60FPS
+    };
+    
     this.lastHistoryLoadTime = 0;
     this.historyLoadCooldown = 2000;
     
@@ -294,6 +302,9 @@ export class PixiChart {
         
         this.viewState.lastMouseX = e.offsetX;
         this.viewState.lastMouseY = e.offsetY;
+        
+        // 在拖拽时更新价格范围，确保当前可见的折线都在Y轴范围内
+        this.updatePriceRange();
         
         this.updateView();
       }
@@ -475,7 +486,14 @@ export class PixiChart {
     // 更新价格范围
     this.updatePriceRange();
     
-    const currentTime = Date.now();
+    // 更新统一的时间基准
+    const now = Date.now();
+    if (now - this.renderTimeBase.lastUpdateTime >= this.renderTimeBase.updateInterval) {
+      this.renderTimeBase.currentTime = now;
+      this.renderTimeBase.lastUpdateTime = now;
+    }
+    const currentTime = this.renderTimeBase.currentTime;
+    
     const chartWidth = this.options.width;
     
     // 使用所有数据确保折线连续性，不进行任何过滤
@@ -516,14 +534,13 @@ export class PixiChart {
       drawToIndex = visibleData.length - 2;
     }
     
-    // 绘制静态线段 - 移除可见性检查，确保折线连续性
+    // 绘制静态线段 - 确保折线连续性
     for (let i = 0; i <= drawToIndex; i++) {
       const point = visibleData[i];
       // 确保使用与网格相同的坐标转换方法
       const x = this.timeToX(point.timestamp, currentTime, chartWidth);
       const y = this.priceToY(point.price);
       
-      // 不进行可见性检查，直接绘制所有点确保折线连续
       if (isFirstPoint) {
         this.lineGraphics.moveTo(x, y);
         isFirstPoint = false;
@@ -604,31 +621,33 @@ export class PixiChart {
   updatePriceRange() {
     if (this.data.length === 0) return;
     
-    const currentTime = Date.now();
+    const currentTime = this.renderTimeBase.currentTime || Date.now();
     
-    // 使用更短的时间窗口来计算价格范围，让变化更明显
-    // 根据用户是否拖拽来动态调整时间窗口
-    let priceRangeTimeWindow;
-    if (this.viewState.hasUserDraggedLeft) {
-      // 用户拖拽查看历史数据时，使用可见时间范围
-      priceRangeTimeWindow = this.timeRange / this.viewState.scaleX;
-    } else {
-      // 正常查看最新数据时，使用配置的时间窗口让变化更明显
-      priceRangeTimeWindow = Math.min(
-        this.timeRange * this.options.priceRangeTimeWindowRatio, 
-        this.options.maxPriceRangeTimeWindow
-      );
+    // 计算当前可见的时间范围
+    const visibleTimeRange = this.timeRange / this.viewState.scaleX;
+    const viewStartTime = currentTime - visibleTimeRange;
+    const viewEndTime = currentTime;
+    
+    // 获取当前视图中可见的所有数据点
+    const visibleData = this.data.filter(d => 
+      d.timestamp >= viewStartTime && d.timestamp <= viewEndTime
+    );
+    
+    // 如果没有可见数据，使用最近的数据
+    let dataForPriceRange = visibleData;
+    if (dataForPriceRange.length === 0) {
+      // 使用最近的一些数据点
+      const recentDataCount = Math.min(50, this.data.length);
+      dataForPriceRange = this.data.slice(-recentDataCount);
     }
     
-    const recentData = this.data.filter(d => (currentTime - d.timestamp) <= priceRangeTimeWindow);
+    if (dataForPriceRange.length === 0) return;
     
-    if (recentData.length === 0) return;
-    
-    const prices = recentData.map(d => d.price);
+    const prices = dataForPriceRange.map(d => d.price);
     const min = Math.min(...prices);
     const max = Math.max(...prices);
     
-    // 动态调整padding：价格变化小时使用更大的padding让图表更敏感
+    // 动态调整padding：确保折线不会超出图表边界
     const priceSpread = max - min;
     let padding;
     
@@ -640,49 +659,59 @@ export class PixiChart {
         // 价格变化很小时，根据敏感度设置不同的最小范围
         switch (sensitivity) {
           case 'high':
-            padding = Math.max(0.8, priceSpread * 3); // 高敏感度：更大的放大倍数
+            padding = Math.max(1.0, priceSpread * 4); // 高敏感度：更大的放大倍数
             break;
           case 'low':
-            padding = Math.max(0.3, priceSpread * 1.5); // 低敏感度：较小的放大倍数
+            padding = Math.max(0.5, priceSpread * 2); // 低敏感度：较小的放大倍数
             break;
           default: // medium
-            padding = Math.max(0.5, priceSpread * 2); // 中等敏感度
+            padding = Math.max(0.8, priceSpread * 3); // 中等敏感度
         }
       } else if (priceSpread < 2) {
         // 价格变化中等时
         switch (sensitivity) {
           case 'high':
-            padding = priceSpread * 0.8; // 高敏感度：更大的padding
+            padding = priceSpread * 1.0; // 高敏感度：更大的padding
             break;
           case 'low':
-            padding = priceSpread * 0.3; // 低敏感度：较小的padding
+            padding = priceSpread * 0.4; // 低敏感度：较小的padding
             break;
           default: // medium
-            padding = priceSpread * 0.5; // 中等敏感度
+            padding = priceSpread * 0.6; // 中等敏感度
         }
       } else {
         // 价格变化较大时
         switch (sensitivity) {
           case 'high':
-            padding = priceSpread * 0.3; // 高敏感度：保持较大的padding
+            padding = priceSpread * 0.4; // 高敏感度：保持较大的padding
             break;
           case 'low':
-            padding = priceSpread * 0.1; // 低敏感度：很小的padding
+            padding = priceSpread * 0.15; // 低敏感度：很小的padding
             break;
           default: // medium
-            padding = priceSpread * 0.2; // 中等敏感度
+            padding = priceSpread * 0.25; // 中等敏感度
         }
       }
       
       // 确保最小padding，避免图表过于平坦
-      padding = Math.max(padding, this.options.minPriceRange * 0.5);
+      padding = Math.max(padding, this.options.minPriceRange * 0.6);
     } else {
-      // 传统的固定padding策略
-      padding = (max - min) * 0.3 || 2;
+      // 传统的固定padding策略，增加padding确保折线在边界内
+      padding = Math.max((max - min) * 0.4, 2);
     }
     
+    // 设置新的价格范围，确保有足够的边距
     this.priceRange.min = min - padding;
     this.priceRange.max = max + padding;
+    
+    // 验证价格范围的合理性
+    const finalPriceSpread = this.priceRange.max - this.priceRange.min;
+    if (finalPriceSpread < this.options.minPriceRange) {
+      const center = (this.priceRange.min + this.priceRange.max) / 2;
+      const halfRange = this.options.minPriceRange / 2;
+      this.priceRange.min = center - halfRange;
+      this.priceRange.max = center + halfRange;
+    }
   }
   
   formatTimeLabel(timestamp) {
@@ -766,10 +795,21 @@ export class PixiChart {
     }
     
     // 保持数据在合理范围内，但保留足够的数据确保折线完整显示
-    // 由于现在最新时间在右边缘(100%)，需要保留足够的历史数据让折线能显示到左边缘(0%)
-    // 增加保留时间到8倍timeRange，确保有足够的数据支持完整的屏幕宽度显示
-    const cutoffTime = Date.now() - this.timeRange * 8; // 从2倍增加到8倍
-    this.data = this.data.filter(d => d.timestamp > cutoffTime);
+    // 优化截断策略：只在数据量超过阈值时才截断，避免频繁截断影响折线连续性
+    const maxDataPoints = Math.max(1000, this.timeRange * 8 / 500); // 动态计算最大数据点数
+    
+    if (this.data.length > maxDataPoints * 1.2) { // 超过120%阈值时才截断
+      const cutoffTime = Date.now() - this.timeRange * 8;
+      const originalLength = this.data.length;
+      this.data = this.data.filter(d => d.timestamp > cutoffTime);
+      
+      // 确保至少保留一定数量的数据点以维持折线连续性
+      if (this.data.length < maxDataPoints * 0.8) {
+        // 如果截断后数据太少，恢复一些数据
+        const additionalDataNeeded = Math.floor(maxDataPoints * 0.8) - this.data.length;
+        // 这里可以考虑从备份或缓存中恢复数据，暂时保持现有逻辑
+      }
+    }
     
     // 清理过期的标记点
     this.cleanupExpiredMarkers();
@@ -1246,17 +1286,27 @@ export class PixiChart {
     // 应用视图变换：先缩放再偏移
     let transformedX = baseX * this.viewState.scaleX + this.viewState.offsetX;
     
-    // 如果启用了平滑流动，应用时间插值
+    // 如果启用了平滑流动，应用时间插值（仅对最新数据点）
     if (this.timeFlow && this.timeFlow.smoothing && !this.updateStrategy.isDragging) {
       const deltaTime = currentTime - this.timeFlow.lastUpdateTime;
-      const smoothingFactor = Math.min(deltaTime * this.timeFlow.interpolationFactor, 1);
       
-      // 对于实时数据点，应用微小的时间偏移以实现平滑流动
-      if (Math.abs(timeDiff) < 1000) { // 只对1秒内的数据点应用平滑
+      // 只对最新的数据点应用平滑，避免影响历史数据的坐标稳定性
+      const isRecentData = Math.abs(timeDiff) < 1000; // 只对1秒内的数据点应用平滑
+      const isLatestPoint = this.data.length > 0 && 
+        Math.abs(timestamp - Math.max(...this.data.map(d => d.timestamp))) < 100;
+      
+      if (isRecentData && isLatestPoint) {
         const timeOffset = deltaTime * 0.001; // 时间偏移因子
         const smoothedTimeDiff = timeDiff - timeOffset;
         const smoothedBaseX = latestX - (smoothedTimeDiff / this.timeRange) * chartWidth;
-        transformedX = smoothedBaseX * this.viewState.scaleX + this.viewState.offsetX;
+        const smoothedX = smoothedBaseX * this.viewState.scaleX + this.viewState.offsetX;
+        
+        // 限制平滑变化的幅度，防止过大的跳跃
+        const maxSmoothingDelta = 5; // 最大平滑变化像素
+        const delta = smoothedX - transformedX;
+        if (Math.abs(delta) <= maxSmoothingDelta) {
+          transformedX = smoothedX;
+        }
       }
       
       this.timeFlow.lastUpdateTime = currentTime;
@@ -1280,8 +1330,12 @@ export class PixiChart {
     
     this.viewState.offsetX = centerX - (centerX - this.viewState.offsetX) * scaleFactorX;
     
+    // 更新价格范围以适应新的可见时间范围
+    this.updatePriceRange();
+    
     // 立即更新视图以确保同步
-    this.updateView();
+    this.drawChart();
+    this.drawGrid();
   }
 
   // 绘制未来时间线
@@ -2191,6 +2245,9 @@ export class PixiChart {
     this.animationState.isAnimating = false;
     this.animationState.pendingAnimations = [];
     
+    // 更新价格范围以适应最新数据
+    this.updatePriceRange();
+    
     // 更新视图
     this.updateView();
     
@@ -2375,5 +2432,40 @@ export class PixiChart {
     
     this.updatePriceRange();
     this.drawChart();
+  }
+
+  // 控制时间流平滑
+  setTimeFlowSmoothing(enabled) {
+    if (this.timeFlow) {
+      this.timeFlow.smoothing = enabled;
+      console.log(`时间流平滑已${enabled ? '启用' : '禁用'}`);
+    }
+  }
+  
+  // 获取时间流平滑状态
+  isTimeFlowSmoothingEnabled() {
+    return this.timeFlow && this.timeFlow.smoothing;
+  }
+  
+  // 强制更新时间基准
+  updateTimeBase() {
+    this.renderTimeBase.currentTime = Date.now();
+    this.renderTimeBase.lastUpdateTime = Date.now();
+  }
+  
+  // 强制更新价格范围
+  forceUpdatePriceRange() {
+    this.updatePriceRange();
+    this.drawChart();
+    this.drawGrid();
+  }
+  
+  // 获取当前价格范围
+  getCurrentPriceRange() {
+    return {
+      min: this.priceRange.min,
+      max: this.priceRange.max,
+      spread: this.priceRange.max - this.priceRange.min
+    };
   }
 } 
