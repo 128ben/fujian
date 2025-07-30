@@ -8,6 +8,7 @@ import * as PIXI from 'pixi.js';
  * - 优化网格更新机制：提供60fps的流畅更新
  * - 智能更新策略：根据用户交互状态调整更新频率
  * - 动态价格范围控制：让折线起伏变化更明显
+ * - 自适应数据采样：根据缩放级别智能采样，消除毛刺，提升性能
  * 
  * 价格范围控制使用示例：
  * 
@@ -20,14 +21,34 @@ import * as PIXI from 'pixi.js';
  *   dynamicPriceRangeEnabled: true // 启用动态价格范围
  * });
  * 
- * // 运行时动态调整
- * chart.setPriceRangeSensitivity('high'); // 提高敏感度让变化更明显
- * chart.setPriceRangeTimeWindowRatio(0.15); // 使用更短的时间窗口
- * chart.setMinPriceRange(0.2); // 设置更小的最小范围
+ * 数据采样系统使用示例：
  * 
- * // 获取当前配置
- * const config = chart.getPriceRangeConfig();
- * console.log('当前价格范围:', config.currentRange);
+ * // 创建图表时配置采样系统
+ * const chart = new PixiChart(container, {
+ *   enableAdaptiveSampling: true, // 启用自适应采样（默认启用）
+ *   samplingQuality: 'high', // 采样质量：'low', 'medium', 'high', 'ultra'
+ *   smoothingEnabled: true, // 启用平滑处理（默认启用）
+ *   minSamplingInterval: 100, // 最小采样间隔100ms
+ *   maxSamplingInterval: 5000 // 最大采样间隔5秒
+ * });
+ * 
+ * // 动态调整采样设置
+ * chart.setSamplingQuality('ultra'); // 设置超高质量采样
+ * chart.setSmoothingEnabled(false); // 禁用平滑处理
+ * chart.setAdaptiveSamplingEnabled(false); // 禁用自适应采样
+ * 
+ * // 获取采样状态信息
+ * const samplingInfo = chart.getSamplingInfo();
+ * console.log(`当前采样级别: ${samplingInfo.currentLevel}`);
+ * console.log(`原始数据点: ${samplingInfo.originalDataPoints}`);
+ * console.log(`采样后数据点: ${samplingInfo.sampledDataPoints}`);
+ * 
+ * // 自定义采样级别配置
+ * chart.configureSamplingLevel('high', {
+ *   maxPoints: 800, // 增加最大点数
+ *   minInterval: 150, // 调整最小间隔
+ *   smoothingFactor: 0.1 // 降低平滑因子
+ * });
  */
 
 export class PixiChart {
@@ -61,6 +82,12 @@ export class PixiChart {
       minPriceRange: options.minPriceRange || 0.5, // 最小价格范围
       dynamicPriceRangeEnabled: options.dynamicPriceRangeEnabled !== false, // 是否启用动态价格范围
       priceRangeSensitivity: options.priceRangeSensitivity || 'medium', // 价格范围敏感度：'low', 'medium', 'high'
+      // 数据采样相关配置
+      enableAdaptiveSampling: options.enableAdaptiveSampling !== false, // 启用自适应采样
+      samplingQuality: options.samplingQuality || 'high', // 采样质量：'low', 'medium', 'high', 'ultra'
+      minSamplingInterval: options.minSamplingInterval || 100, // 最小采样间隔（毫秒）
+      maxSamplingInterval: options.maxSamplingInterval || 5000, // 最大采样间隔（毫秒）
+      smoothingEnabled: options.smoothingEnabled !== false, // 启用平滑处理
       ...options
     };
     
@@ -166,6 +193,37 @@ export class PixiChart {
     // 根据当前时间间隔设置初始timeRange
     this.timeRange = this.timeIntervals.presets[this.timeIntervals.currentIndex] * 1000;
     
+    // 数据采样系统
+    this.dataSampling = {
+      enabled: this.options.enableAdaptiveSampling,
+      quality: this.options.samplingQuality,
+      cache: new Map(), // 缓存不同采样级别的数据
+      lastSamplingLevel: null,
+      samplingLevels: {
+        // 根据时间范围定义不同的采样策略
+        ultra: { // 超高质量 - 15秒视图
+          maxPoints: 900, // 最多900个点
+          minInterval: 100, // 最小100ms间隔
+          smoothingFactor: 0.1
+        },
+        high: { // 高质量 - 30秒视图
+          maxPoints: 600, // 最多600个点
+          minInterval: 200, // 最小200ms间隔
+          smoothingFactor: 0.15
+        },
+        medium: { // 中等质量 - 3分钟视图
+          maxPoints: 400, // 最多400个点
+          minInterval: 500, // 最小500ms间隔
+          smoothingFactor: 0.2
+        },
+        low: { // 低质量 - 5分钟及以上视图
+          maxPoints: 200, // 最多200个点
+          minInterval: 1000, // 最小1秒间隔
+          smoothingFactor: 0.3
+        }
+      }
+    };
+
     this.lastHistoryLoadTime = 0;
     this.historyLoadCooldown = 2000;
     
@@ -534,8 +592,19 @@ export class PixiChart {
     
     const chartWidth = this.options.width;
     
-    // 使用所有数据确保折线连续性，不进行任何过滤
-    let visibleData = this.data;
+    // 获取采样后的数据以优化性能和视觉效果
+    let visibleData = this.getSampledData();
+    
+    // 检查采样级别是否发生变化，如果是则清除缓存
+    const currentSamplingLevel = this.getCurrentSamplingLevel();
+    if (this.dataSampling.lastSamplingLevel !== currentSamplingLevel) {
+      this.clearSamplingCache();
+      this.dataSampling.lastSamplingLevel = currentSamplingLevel;
+      // 重新获取采样数据
+      visibleData = this.getSampledData();
+      
+      console.log(`缩放级别变化: ${currentSamplingLevel}, 数据点: ${this.data.length} -> ${visibleData.length}`);
+    }
     
     if (visibleData.length === 0) return;
     
@@ -555,7 +624,6 @@ export class PixiChart {
       return;
     }
     
-    // 绘制折线 - 确保与网格使用相同的坐标系统
     this.drawSmoothLine(visibleData, currentTime, chartWidth);
   }
   
@@ -792,21 +860,34 @@ export class PixiChart {
 
   // 重写addData方法，实现数据缓冲和稳定性检查
   addData(newData) {
-    // 将新数据添加到缓冲区
-    this.dataStability.pendingData.push({
-      ...newData,
-      receivedTime: Date.now()
+    if (!newData || (Array.isArray(newData) && newData.length === 0)) {
+      return;
+    }
+    
+    // 将新数据添加到待处理队列而不是直接添加到数据数组
+    const dataArray = Array.isArray(newData) ? newData : [newData];
+    
+    dataArray.forEach(data => {
+      // 为每个数据点添加接收时间戳
+      const dataWithTimestamp = {
+        ...data,
+        receivedTime: Date.now()
+      };
+      this.dataStability.pendingData.push(dataWithTimestamp);
     });
     
-    // 限制缓冲区大小
-    if (this.dataStability.pendingData.length > this.dataStability.maxPendingCount) {
-      this.dataStability.pendingData.shift();
+    // 清理过期的采样缓存（当新数据到来时）
+    if (this.dataSampling.enabled && this.dataSampling.cache.size > 0) {
+      // 只保留最近的缓存项
+      if (this.dataSampling.cache.size > 5) {
+        const keys = Array.from(this.dataSampling.cache.keys());
+        const keysToDelete = keys.slice(0, keys.length - 5);
+        keysToDelete.forEach(key => this.dataSampling.cache.delete(key));
+      }
     }
     
-    // 如果不在处理中，启动稳定性检查
-    if (!this.dataStability.isProcessing) {
-      this.startDataStabilityCheck();
-    }
+    // 启动数据稳定性检查
+    this.startDataStabilityCheck();
   }
   
   // 启动数据稳定性检查
@@ -1493,6 +1574,9 @@ export class PixiChart {
     this.viewState.scaleX = 1;
     this.viewState.offsetX = 0;
     
+    // 清除采样缓存，因为时间范围变化会影响采样策略
+    this.clearSamplingCache();
+    
     // 更新价格范围以适应新的时间范围
     this.updatePriceRange();
     
@@ -1652,7 +1736,7 @@ export class PixiChart {
       timestamp: bestDataPoint.timestamp, // 使用实际数据点的时间戳
       price: bestDataPoint.price, // 使用实际数据点的价格
       type: markerData.type || 'buy', // 'buy' 或 'sell'
-      color: markerData.color || (markerData.type === 'buy' ? 0x00ff00 : 0xff0000), // 绿色买入，红色卖出
+      color: markerData.color || (markerData.type === 'buy' ? 0x00ff00 : 0xff0000), // 绿色买涨，红色卖跌
       size: markerData.size || 8, // 稍微增大标记点以便更清晰
       label: markerData.label || '',
       amount: markerData.amount || 0,
@@ -2806,11 +2890,319 @@ export class PixiChart {
     }
     
     return {
+      enabled: this.options.showFutureTimeLine,
+      interval: this.options.futureTimeLineInterval,
+      color: this.options.gridColor,
+      opacity: 0.5,
       offsetMs: futureTimeOffset,
       offsetSeconds: offsetSeconds,
       displayText: displayText,
       timeRangeRatio: futureTimeOffset / this.timeRange,
       description: `未来时间线距离当前时间 ${displayText}，占当前时间范围的 ${(futureTimeOffset / this.timeRange * 100).toFixed(1)}%`
     };
+  }
+
+  // ========== 数据采样系统 ==========
+  
+  /**
+   * 根据当前时间范围获取最佳采样级别
+   */
+  getCurrentSamplingLevel() {
+    if (!this.dataSampling.enabled) return 'high';
+    
+    const timeRangeSeconds = this.timeRange / 1000;
+    
+    if (timeRangeSeconds <= 15) return 'ultra';
+    if (timeRangeSeconds <= 30) return 'high';
+    if (timeRangeSeconds <= 180) return 'medium';
+    return 'low';
+  }
+  
+  /**
+   * 获取采样后的数据
+   */
+  getSampledData(originalData = null) {
+    const data = originalData || this.data;
+    if (!this.dataSampling.enabled || data.length === 0) return data;
+    
+    const samplingLevel = this.getCurrentSamplingLevel();
+    const samplingConfig = this.dataSampling.samplingLevels[samplingLevel];
+    
+    // 检查缓存
+    const cacheKey = `${samplingLevel}_${data.length}_${data[data.length - 1]?.timestamp || 0}`;
+    if (this.dataSampling.cache.has(cacheKey)) {
+      return this.dataSampling.cache.get(cacheKey);
+    }
+    
+    let sampledData;
+    
+    // 如果数据点数量小于最大点数，直接返回原数据
+    if (data.length <= samplingConfig.maxPoints) {
+      sampledData = [...data];
+    } else {
+      // 执行采样
+      sampledData = this.performDataSampling(data, samplingConfig);
+    }
+    
+    // 应用平滑处理
+    if (this.options.smoothingEnabled && sampledData.length > 2) {
+      sampledData = this.applySmoothingFilter(sampledData, samplingConfig.smoothingFactor);
+    }
+    
+    // 缓存结果（限制缓存大小）
+    if (this.dataSampling.cache.size > 10) {
+      const firstKey = this.dataSampling.cache.keys().next().value;
+      this.dataSampling.cache.delete(firstKey);
+    }
+    this.dataSampling.cache.set(cacheKey, sampledData);
+    
+    return sampledData;
+  }
+  
+  /**
+   * 执行数据采样
+   */
+  performDataSampling(data, config) {
+    const { maxPoints, minInterval } = config;
+    const sampledData = [];
+    
+    if (data.length === 0) return sampledData;
+    
+    // 总是保留第一个点
+    sampledData.push(data[0]);
+    
+    // 计算采样间隔
+    const totalTimeSpan = data[data.length - 1].timestamp - data[0].timestamp;
+    const idealInterval = Math.max(minInterval, totalTimeSpan / maxPoints);
+    
+    let lastSampledTime = data[0].timestamp;
+    let lastSampledIndex = 0;
+    
+    for (let i = 1; i < data.length - 1; i++) {
+      const currentPoint = data[i];
+      const timeSinceLastSample = currentPoint.timestamp - lastSampledTime;
+      
+      // 检查是否应该采样这个点
+      if (timeSinceLastSample >= idealInterval) {
+        // 在时间间隔内选择最有代表性的点
+        const representativePoint = this.findRepresentativePoint(
+          data, lastSampledIndex, i, idealInterval
+        );
+        
+        if (representativePoint && representativePoint !== sampledData[sampledData.length - 1]) {
+          sampledData.push(representativePoint);
+          lastSampledTime = representativePoint.timestamp;
+          lastSampledIndex = i;
+        }
+      }
+    }
+    
+    // 总是保留最后一个点
+    if (data.length > 1) {
+      const lastPoint = data[data.length - 1];
+      if (lastPoint !== sampledData[sampledData.length - 1]) {
+        sampledData.push(lastPoint);
+      }
+    }
+    
+    return sampledData;
+  }
+  
+  /**
+   * 在指定范围内找到最有代表性的数据点
+   */
+  findRepresentativePoint(data, startIndex, endIndex, interval) {
+    if (startIndex >= endIndex) return data[endIndex];
+    
+    // 策略1：找到价格变化最大的点
+    let maxPriceChange = 0;
+    let representativePoint = data[endIndex];
+    
+    for (let i = startIndex + 1; i <= endIndex; i++) {
+      const currentPoint = data[i];
+      const prevPoint = data[i - 1];
+      const priceChange = Math.abs(currentPoint.price - prevPoint.price);
+      
+      if (priceChange > maxPriceChange) {
+        maxPriceChange = priceChange;
+        representativePoint = currentPoint;
+      }
+    }
+    
+    // 策略2：如果价格变化很小，选择时间上最接近理想间隔的点
+    if (maxPriceChange < 0.01) {
+      const targetTime = data[startIndex].timestamp + interval;
+      let minTimeDiff = Infinity;
+      
+      for (let i = startIndex + 1; i <= endIndex; i++) {
+        const timeDiff = Math.abs(data[i].timestamp - targetTime);
+        if (timeDiff < minTimeDiff) {
+          minTimeDiff = timeDiff;
+          representativePoint = data[i];
+        }
+      }
+    }
+    
+    return representativePoint;
+  }
+  
+  /**
+   * 应用平滑滤波器减少毛刺
+   */
+  applySmoothingFilter(data, smoothingFactor) {
+    if (data.length < 3) return data;
+    
+    const smoothedData = [...data];
+    
+    // 应用简单的移动平均平滑
+    for (let i = 1; i < smoothedData.length - 1; i++) {
+      const prev = data[i - 1];
+      const current = data[i];
+      const next = data[i + 1];
+      
+      // 加权平均，当前点权重更高
+      const smoothedPrice = (
+        prev.price * smoothingFactor +
+        current.price * (1 - 2 * smoothingFactor) +
+        next.price * smoothingFactor
+      );
+      
+      smoothedData[i] = {
+        ...current,
+        price: smoothedPrice
+      };
+    }
+    
+    return smoothedData;
+  }
+  
+  /**
+   * 清除采样缓存
+   */
+  clearSamplingCache() {
+    this.dataSampling.cache.clear();
+  }
+  
+  /**
+   * 设置采样质量
+   */
+  setSamplingQuality(quality) {
+    if (['low', 'medium', 'high', 'ultra'].includes(quality)) {
+      this.dataSampling.quality = quality;
+      this.clearSamplingCache();
+      return true;
+    }
+    return false;
+  }
+  
+  /**
+   * 获取当前采样状态信息
+   */
+  getSamplingInfo() {
+    const currentLevel = this.getCurrentSamplingLevel();
+    const config = this.dataSampling.samplingLevels[currentLevel];
+    
+    return {
+      enabled: this.dataSampling.enabled,
+      currentLevel,
+      config,
+      originalDataPoints: this.data.length,
+      sampledDataPoints: this.getSampledData().length,
+      cacheSize: this.dataSampling.cache.size
+    };
+  }
+  
+  /**
+   * 启用或禁用自适应采样
+   */
+  setAdaptiveSamplingEnabled(enabled) {
+    this.dataSampling.enabled = enabled;
+    this.options.enableAdaptiveSampling = enabled;
+    this.clearSamplingCache();
+    
+    // 如果禁用采样，立即重绘以显示原始数据
+    if (!enabled) {
+      this.drawChart();
+    }
+    
+    return enabled;
+  }
+  
+  /**
+   * 获取自适应采样状态
+   */
+  isAdaptiveSamplingEnabled() {
+    return this.dataSampling.enabled;
+  }
+  
+  /**
+   * 设置平滑处理开关
+   */
+  setSmoothingEnabled(enabled) {
+    this.options.smoothingEnabled = enabled;
+    this.clearSamplingCache();
+    this.drawChart();
+    return enabled;
+  }
+  
+  /**
+   * 获取平滑处理状态
+   */
+  isSmoothingEnabled() {
+    return this.options.smoothingEnabled;
+  }
+  
+  /**
+   * 自定义采样级别配置
+   */
+  configureSamplingLevel(level, config) {
+    if (this.dataSampling.samplingLevels[level]) {
+      this.dataSampling.samplingLevels[level] = {
+        ...this.dataSampling.samplingLevels[level],
+        ...config
+      };
+      this.clearSamplingCache();
+      return true;
+    }
+    return false;
+  }
+  
+  /**
+   * 重置采样配置为默认值
+   */
+  resetSamplingConfig() {
+    this.dataSampling.samplingLevels = {
+      ultra: {
+        maxPoints: 900,
+        minInterval: 100,
+        smoothingFactor: 0.1
+      },
+      high: {
+        maxPoints: 600,
+        minInterval: 200,
+        smoothingFactor: 0.15
+      },
+      medium: {
+        maxPoints: 400,
+        minInterval: 500,
+        smoothingFactor: 0.2
+      },
+      low: {
+        maxPoints: 200,
+        minInterval: 1000,
+        smoothingFactor: 0.3
+      }
+    };
+    this.clearSamplingCache();
+    this.drawChart();
+  }
+  
+  /**
+   * 强制重新采样并重绘
+   */
+  forceSamplingRefresh() {
+    this.clearSamplingCache();
+    this.dataSampling.lastSamplingLevel = null;
+    this.drawChart();
   }
 } 
