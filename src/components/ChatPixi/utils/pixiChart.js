@@ -156,6 +156,16 @@ export class PixiChart {
       renderTimer: null // 渲染定时器
     };
     
+    // 预设时间间隔配置 - 替代传统的缩放系统
+    this.timeIntervals = {
+      presets: [15, 30, 180, 300, 600], // 预设时间间隔（秒）
+      currentIndex: 2, // 默认使用180秒
+      labels: ['15秒', '30秒', '3分钟', '5分钟', '10分钟']
+    };
+    
+    // 根据当前时间间隔设置初始timeRange
+    this.timeRange = this.timeIntervals.presets[this.timeIntervals.currentIndex] * 1000;
+    
     this.lastHistoryLoadTime = 0;
     this.historyLoadCooldown = 2000;
     
@@ -383,21 +393,39 @@ export class PixiChart {
     // 设置网格样式
     this.gridGraphics.lineStyle(1, this.options.gridColor, 0.3);
     
-    // 根据缩放级别调整网格密度 - 确保与折线图使用相同的缩放参数
-    const baseGridSpacing = 100; // 基础网格间距
-    const timeGridSpacing = Math.max(20, baseGridSpacing / this.viewState.scaleX); // 时间轴网格间距
+    // 根据时间范围调整网格密度 - 不再依赖scaleX
+    const baseGridSpacing = 80; // 基础网格间距
+    let timeGridSpacing;
+    let timeInterval;
     
-    // 计算时间间隔（根据缩放调整）- 与折线图数据使用相同的时间范围
-    const baseTimeInterval = 2500; // 基础时间间隔2.5秒
-    const timeInterval = Math.max(500, baseTimeInterval / this.viewState.scaleX); // 动态时间间隔，最小500ms
+    // 根据当前时间范围动态调整网格密度
+    const currentTimeRangeSeconds = this.timeRange / 1000;
     
-    // 绘制垂直网格线（时间轴）- 使用与折线图数据完全相同的坐标转换逻辑
-    const numTimeLines = Math.ceil(width / timeGridSpacing) + 4; // 增加网格线数量确保覆盖
+    if (currentTimeRangeSeconds <= 30) {
+      // 15秒和30秒：每5秒一个网格
+      timeGridSpacing = baseGridSpacing;
+      timeInterval = 5000; // 5秒
+    } else if (currentTimeRangeSeconds <= 180) {
+      // 3分钟：每30秒一个网格
+      timeGridSpacing = baseGridSpacing;
+      timeInterval = 30000; // 30秒
+    } else if (currentTimeRangeSeconds <= 300) {
+      // 5分钟：每1分钟一个网格
+      timeGridSpacing = baseGridSpacing;
+      timeInterval = 60000; // 1分钟
+    } else {
+      // 10分钟：每2分钟一个网格
+      timeGridSpacing = baseGridSpacing;
+      timeInterval = 120000; // 2分钟
+    }
     
-    // 计算当前可见的时间范围，过去数据占满整个屏幕宽度
-    const visibleTimeRange = this.timeRange / this.viewState.scaleX;
-    const visibleTimeStart = currentTime - visibleTimeRange; // 过去数据从最早时间开始
-    const visibleTimeEnd = currentTime; // 到当前时间结束
+    // 绘制垂直网格线（时间轴）
+    const numTimeLines = Math.ceil(width / timeGridSpacing) + 4;
+    
+    // 计算当前可见的时间范围
+    const visibleTimeRange = this.timeRange; // 直接使用timeRange，不再除以scaleX
+    const visibleTimeStart = currentTime - visibleTimeRange;
+    const visibleTimeEnd = currentTime;
     
     // 优化网格线生成 - 使用更小的时间间隔以实现更平滑的流动效果
     const smoothTimeInterval = Math.max(100, timeInterval / 5); // 使用更小的间隔，确保平滑流动
@@ -633,8 +661,8 @@ export class PixiChart {
     
     const currentTime = this.renderTimeBase.currentTime || Date.now();
     
-    // 计算当前可见的时间范围
-    const visibleTimeRange = this.timeRange / this.viewState.scaleX;
+    // 计算当前可见的时间范围 - 直接使用timeRange
+    const visibleTimeRange = this.timeRange;
     const viewStartTime = currentTime - visibleTimeRange;
     const viewEndTime = currentTime;
     
@@ -1362,14 +1390,15 @@ export class PixiChart {
   // 统一的时间到X坐标转换方法
   timeToX(timestamp, currentTime, chartWidth) {
     // 最新时间在右边缘，让过去数据从左侧边缘开始显示
-    const latestX = chartWidth; // 改为100%，即右边缘
+    const latestX = chartWidth; // 右边缘
     const timeDiff = currentTime - timestamp;
+    
+    // 直接基于timeRange计算坐标，不再使用scaleX和offsetX
     const baseX = latestX - (timeDiff / this.timeRange) * chartWidth;
     
-    // 应用视图变换：先缩放再偏移
-    let transformedX = baseX * this.viewState.scaleX + this.viewState.offsetX;
-    
     // 如果启用了平滑流动，应用时间插值（仅对最新数据点）
+    let transformedX = baseX;
+    
     if (this.timeFlow && this.timeFlow.smoothing && !this.updateStrategy.isDragging) {
       const deltaTime = currentTime - this.timeFlow.lastUpdateTime;
       
@@ -1381,8 +1410,7 @@ export class PixiChart {
       if (isRecentData && isLatestPoint) {
         const timeOffset = deltaTime * 0.001; // 时间偏移因子
         const smoothedTimeDiff = timeDiff - timeOffset;
-        const smoothedBaseX = latestX - (smoothedTimeDiff / this.timeRange) * chartWidth;
-        const smoothedX = smoothedBaseX * this.viewState.scaleX + this.viewState.offsetX;
+        const smoothedX = latestX - (smoothedTimeDiff / this.timeRange) * chartWidth;
         
         // 限制平滑变化的幅度，防止过大的跳跃
         const maxSmoothingDelta = 5; // 最大平滑变化像素
@@ -1395,32 +1423,102 @@ export class PixiChart {
       this.timeFlow.lastUpdateTime = currentTime;
     }
     
-    // 调试信息（可选）
-    // console.log(`timeToX: timestamp=${timestamp}, baseX=${baseX.toFixed(2)}, transformedX=${transformedX.toFixed(2)}, scaleX=${this.viewState.scaleX.toFixed(2)}`);
-    
     return transformedX;
   }
 
-  // 重写zoom方法
+  // 重写zoom方法 - 使用预设时间间隔
   zoom(factor, centerX, centerY) {
-    const oldScaleX = this.viewState.scaleX;
+    // 根据缩放因子确定是放大还是缩小
+    const isZoomIn = factor > 1;
     
-    // 只对x轴进行缩放，y轴保持不变
-    this.viewState.scaleX = Math.max(0.1, Math.min(10, this.viewState.scaleX * factor));
+    if (isZoomIn) {
+      this.zoomToSmallerInterval();
+    } else {
+      this.zoomToLargerInterval();
+    }
+  }
+  
+  // 放大：切换到更小的时间间隔
+  zoomToSmallerInterval() {
+    if (this.timeIntervals.currentIndex > 0) {
+      this.timeIntervals.currentIndex--;
+      this.updateTimeRange();
+      console.log(`放大到: ${this.timeIntervals.labels[this.timeIntervals.currentIndex]}`);
+    } else {
+      console.log('已达到最小时间间隔');
+    }
+  }
+  
+  // 缩小：切换到更大的时间间隔
+  zoomToLargerInterval() {
+    if (this.timeIntervals.currentIndex < this.timeIntervals.presets.length - 1) {
+      this.timeIntervals.currentIndex++;
+      this.updateTimeRange();
+      console.log(`缩小到: ${this.timeIntervals.labels[this.timeIntervals.currentIndex]}`);
+    } else {
+      console.log('已达到最大时间间隔');
+    }
+  }
+  
+  // 更新时间范围并重绘
+  updateTimeRange() {
+    const newTimeRangeSeconds = this.timeIntervals.presets[this.timeIntervals.currentIndex];
+    this.timeRange = newTimeRangeSeconds * 1000; // 转换为毫秒
     
-    // 调整偏移以保持缩放中心
-    const scaleFactorX = this.viewState.scaleX / oldScaleX;
+    // 重置视图状态，因为我们改变了基础时间范围而不是缩放
+    this.viewState.scaleX = 1;
+    this.viewState.offsetX = 0;
     
-    this.viewState.offsetX = centerX - (centerX - this.viewState.offsetX) * scaleFactorX;
-    
-    // 更新价格范围以适应新的可见时间范围
+    // 更新价格范围以适应新的时间范围
     this.updatePriceRange();
     
-    // 立即更新视图以确保同步
+    // 立即更新视图
     this.drawChart();
     this.drawGrid();
   }
-
+  
+  // 直接设置时间间隔（通过索引）
+  setTimeIntervalByIndex(index) {
+    if (index >= 0 && index < this.timeIntervals.presets.length) {
+      this.timeIntervals.currentIndex = index;
+      this.updateTimeRange();
+      console.log(`设置时间间隔为: ${this.timeIntervals.labels[index]}`);
+      return true;
+    }
+    return false;
+  }
+  
+  // 直接设置时间间隔（通过秒数）
+  setTimeIntervalBySeconds(seconds) {
+    const index = this.timeIntervals.presets.indexOf(seconds);
+    if (index !== -1) {
+      return this.setTimeIntervalByIndex(index);
+    }
+    console.warn(`不支持的时间间隔: ${seconds}秒`);
+    return false;
+  }
+  
+  // 获取当前时间间隔信息
+  getCurrentTimeInterval() {
+    return {
+      index: this.timeIntervals.currentIndex,
+      seconds: this.timeIntervals.presets[this.timeIntervals.currentIndex],
+      label: this.timeIntervals.labels[this.timeIntervals.currentIndex],
+      canZoomIn: this.timeIntervals.currentIndex > 0,
+      canZoomOut: this.timeIntervals.currentIndex < this.timeIntervals.presets.length - 1
+    };
+  }
+  
+  // 获取所有可用的时间间隔
+  getAvailableTimeIntervals() {
+    return this.timeIntervals.presets.map((seconds, index) => ({
+      index,
+      seconds,
+      label: this.timeIntervals.labels[index],
+      isCurrent: index === this.timeIntervals.currentIndex
+    }));
+  }
+  
   // 绘制未来时间线
   drawFutureTimeLine() {
     if (!this.futureTimeLineGraphics || !this.options.showFutureTimeLine) return;

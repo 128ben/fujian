@@ -65,14 +65,18 @@
         </span>
       </div>
       <div class="control-buttons">
-        <button @click="zoomIn" class="control-btn">
+        <button @click="zoomIn" class="control-btn" :disabled="!canZoomIn">
           <span>🔍+</span>
           <span>放大</span>
         </button>
-        <button @click="zoomOut" class="control-btn">
+        <button @click="zoomOut" class="control-btn" :disabled="!canZoomOut">
           <span>🔍-</span>
           <span>缩小</span>
         </button>
+        <div class="time-interval-display">
+          <span class="interval-label">时间范围:</span>
+          <span class="interval-value">{{ currentTimeInterval }}</span>
+        </div>
         <button @click="toggleLatestPriceLine" class="control-btn" :class="{ active: showLatestPriceLine }">
           <span>📏</span>
           <span>价格线</span>
@@ -183,6 +187,9 @@ const isDataSourceSwitching = ref(false);
 const isAtLatestPosition = ref(true); // 新增：判断是否在最新位置
 const isLoadingHistory = ref(false); // 新增：判断是否正在加载历史数据
 const pendingDataCount = ref(0); // 新增：待处理数据数量
+const currentTimeInterval = ref('3分钟'); // 新增：当前时间间隔
+const canZoomIn = ref(true); // 新增：是否可以放大
+const canZoomOut = ref(true); // 新增：是否可以缩小
 
 // 新增：未来时间线相关的响应式变量
 const futureTimeLineInterval = ref(props.initialFutureTimeLineInterval);
@@ -405,6 +412,12 @@ function startStatsUpdate() {
     if (pixiChart) {
       const stabilityStatus = pixiChart.getDataStabilityStatus();
       pendingDataCount.value = stabilityStatus.pendingCount;
+      
+      // 更新时间间隔状态
+      const intervalInfo = pixiChart.getCurrentTimeInterval();
+      currentTimeInterval.value = intervalInfo.label;
+      canZoomIn.value = intervalInfo.canZoomIn;
+      canZoomOut.value = intervalInfo.canZoomOut;
     }
   }, 500);
 }
@@ -908,6 +921,25 @@ defineExpose({
     if (pixiChart) {
       pixiChart.flushPendingData();
     }
+  },
+  // 时间间隔控制
+  setTimeIntervalByIndex: (index) => {
+    if (pixiChart) {
+      return pixiChart.setTimeIntervalByIndex(index);
+    }
+    return false;
+  },
+  setTimeIntervalBySeconds: (seconds) => {
+    if (pixiChart) {
+      return pixiChart.setTimeIntervalBySeconds(seconds);
+    }
+    return false;
+  },
+  getCurrentTimeInterval: () => {
+    return pixiChart ? pixiChart.getCurrentTimeInterval() : null;
+  },
+  getAvailableTimeIntervals: () => {
+    return pixiChart ? pixiChart.getAvailableTimeIntervals() : [];
   }
 });
 </script>
@@ -1080,6 +1112,41 @@ defineExpose({
 
 .control-btn span:first-child {
   font-size: 16px;
+}
+
+.time-interval-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+  min-width: 60px;
+}
+
+.interval-label {
+  font-size: 9px;
+  color: #888;
+  text-align: center;
+}
+
+.interval-value {
+  font-size: 12px;
+  color: #00aaff;
+  font-weight: bold;
+  text-align: center;
+}
+
+.control-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: linear-gradient(135deg, #666 0%, #444 100%);
+}
+
+.control-btn:disabled:hover {
+  background: linear-gradient(135deg, #666 0%, #444 100%);
+  transform: none;
 }
 
 .chart-container {
