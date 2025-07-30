@@ -2028,9 +2028,9 @@ export class PixiChart {
             
             // 创建展开状态的背景框 - 调整高度以容纳三行文本和头像
             const padding = 4;
-            const avatarSpacing = 20; // 为头像预留空间
+            const avatarSpacing = 26; // 为更大的头像预留更多空间，从20增加到26
             const bgWidth = Math.max(amountLabel.width, nameLabel.width, priceLabel.width) + padding * 2 + avatarSpacing;
-            const bgHeight = 60; // 增加高度以包含三行文本
+            const bgHeight = 65; // 稍微增加高度以适应更大的头像，从60增加到65
             
             // 根据文本标签位置确定背景框位置
             const isDisplayedBelow = nameLabel.y > actualY; // 判断文本是否显示在标记点下方
@@ -2052,7 +2052,7 @@ export class PixiChart {
             bgGraphics.endFill();
             
             // 在背景框左上角绘制小头像
-            const avatarSize = 12; // 展开框内的头像大小
+            const avatarSize = 18; // 展开框内的头像大小，从12增加到18
             const avatarX = bgX + padding + avatarSize / 2 + 2;
             const avatarY = bgY + padding + avatarSize / 2 + 2;
             
@@ -2062,12 +2062,12 @@ export class PixiChart {
             bgGraphics.endFill();
             
             // 绘制头像边框
-            bgGraphics.lineStyle(1, marker.color, 1);
+            bgGraphics.lineStyle(1.5, marker.color, 1); // 稍微增加边框宽度
             bgGraphics.drawCircle(avatarX, avatarY, avatarSize / 2);
             bgGraphics.lineStyle(0);
             
             // 绘制简化的头像图标
-            const faceSize = avatarSize * 0.6;
+            const faceSize = avatarSize * 0.65; // 稍微调整比例
             const faceColor = marker.type === 'buy' ? 0x4CAF50 : 0xF44336;
             
             // 绘制头部
@@ -2087,7 +2087,7 @@ export class PixiChart {
             bgGraphics.endFill();
             
             // 绘制眼睛
-            const eyeSize = faceSize * 0.06;
+            const eyeSize = faceSize * 0.08; // 保持眼睛比例
             bgGraphics.beginFill(0xffffff, 1);
             bgGraphics.drawCircle(avatarX - faceSize * 0.08, avatarY - faceSize * 0.2, eyeSize);
             bgGraphics.drawCircle(avatarX + faceSize * 0.08, avatarY - faceSize * 0.2, eyeSize);
@@ -2098,6 +2098,16 @@ export class PixiChart {
             bgGraphics.beginFill(0x333333, 1);
             bgGraphics.drawCircle(avatarX - faceSize * 0.08, avatarY - faceSize * 0.2, pupilSize);
             bgGraphics.drawCircle(avatarX + faceSize * 0.08, avatarY - faceSize * 0.2, pupilSize);
+            bgGraphics.endFill();
+            
+            // 绘制嘴巴（微笑）
+            bgGraphics.lineStyle(1.5, 0xffffff, 1);
+            bgGraphics.arc(avatarX, avatarY - faceSize * 0.05, faceSize * 0.12, 0.2, Math.PI - 0.2);
+            bgGraphics.lineStyle(0);
+            
+            // 添加头发/帽子装饰
+            bgGraphics.beginFill(0x8B4513, 1); // 棕色头发
+            bgGraphics.drawEllipse(avatarX, avatarY - faceSize * 0.35, faceSize * 0.3, faceSize * 0.15);
             bgGraphics.endFill();
             
             this.markerTextContainer.addChild(bgGraphics);
