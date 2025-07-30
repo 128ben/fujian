@@ -42,6 +42,10 @@
           <span class="value">{{ renderedData }}</span>
         </span>
         <span class="stat-item">
+          <span class="label">待处理:</span>
+          <span class="value" :class="{ 'pending-data': pendingDataCount > 0 }">{{ pendingDataCount }}</span>
+        </span>
+        <span class="stat-item">
           <span class="label">当前价格:</span>
           <span class="value" :class="priceChangeClass">${{ currentPrice }}</span>
         </span>
@@ -178,6 +182,7 @@ const currentDataSourceId = ref(props.dataSourceId);
 const isDataSourceSwitching = ref(false);
 const isAtLatestPosition = ref(true); // 新增：判断是否在最新位置
 const isLoadingHistory = ref(false); // 新增：判断是否正在加载历史数据
+const pendingDataCount = ref(0); // 新增：待处理数据数量
 
 // 新增：未来时间线相关的响应式变量
 const futureTimeLineInterval = ref(props.initialFutureTimeLineInterval);
@@ -394,6 +399,12 @@ function startStatsUpdate() {
       queuedData.value = stats.queuedData;
       renderedData.value = stats.renderedData;
       updateFrequency.value = stats.averageFrequency.toFixed(1);
+    }
+    
+    // 更新数据稳定性状态
+    if (pixiChart) {
+      const stabilityStatus = pixiChart.getDataStabilityStatus();
+      pendingDataCount.value = stabilityStatus.pendingCount;
     }
   }, 500);
 }
@@ -875,6 +886,28 @@ defineExpose({
   },
   getCurrentPriceRange: () => {
     return pixiChart ? pixiChart.getCurrentPriceRange() : null;
+  },
+  // 数据稳定性控制
+  setDataStabilityThreshold: (threshold) => {
+    if (pixiChart) {
+      pixiChart.setDataStabilityThreshold(threshold);
+    }
+  },
+  getDataStabilityThreshold: () => {
+    return pixiChart ? pixiChart.getDataStabilityThreshold() : null;
+  },
+  setMaxPendingDataCount: (count) => {
+    if (pixiChart) {
+      pixiChart.setMaxPendingDataCount(count);
+    }
+  },
+  getDataStabilityStatus: () => {
+    return pixiChart ? pixiChart.getDataStabilityStatus() : null;
+  },
+  flushPendingData: () => {
+    if (pixiChart) {
+      pixiChart.flushPendingData();
+    }
   }
 });
 </script>
@@ -1189,6 +1222,11 @@ defineExpose({
 
 .loading-indicator {
   animation: pulse 1s infinite;
+}
+
+.pending-data {
+  color: #ffa500 !important; /* 待处理数据数量为橙色 */
+  font-weight: bold;
 }
 
 @keyframes pulse {

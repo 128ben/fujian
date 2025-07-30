@@ -146,6 +146,16 @@ export class PixiChart {
       updateInterval: 16 // 约60FPS
     };
     
+    // 数据稳定性管理 - 防止回跳
+    this.dataStability = {
+      pendingData: [], // 待绘制的数据缓冲区
+      lastStableTime: Date.now(),
+      stabilityThreshold: 150, // 数据稳定阈值（毫秒）
+      maxPendingCount: 3, // 最大待处理数据数量
+      isProcessing: false, // 是否正在处理数据
+      renderTimer: null // 渲染定时器
+    };
+    
     this.lastHistoryLoadTime = 0;
     this.historyLoadCooldown = 2000;
     
@@ -752,53 +762,116 @@ export class PixiChart {
     }
   }
 
-  // 重写addData方法，在添加数据后验证标记点
+  // 重写addData方法，实现数据缓冲和稳定性检查
   addData(newData) {
-    const previousDataLength = this.data.length;
-    this.data.push(newData);
+    // 将新数据添加到缓冲区
+    this.dataStability.pendingData.push({
+      ...newData,
+      receivedTime: Date.now()
+    });
     
-    // 先更新价格范围，确保后续的坐标计算正确
-    this.updatePriceRange();
-    
-    // 验证并调整标记点位置
-    this.validateAndAdjustMarkers();
-    
-    // 如果这不是第一个数据点且动画开启，启动绘制动画
-    if (previousDataLength > 0 && this.options.animationEnabled) {
-      const currentTime = Date.now();
-      const chartWidth = this.options.width;
-      
-      // 计算前一个点和新点的屏幕坐标
-      const prevData = this.data[previousDataLength - 1];
-      const prevX = this.timeToX(prevData.timestamp, currentTime, chartWidth);
-      const prevY = this.priceToY(prevData.price);
-      
-      const newX = this.timeToX(newData.timestamp, currentTime, chartWidth);
-      const newY = this.priceToY(newData.price);
-      
-      // 检查坐标是否有效
-      if (!isNaN(prevX) && !isNaN(prevY) && !isNaN(newX) && !isNaN(newY)) {
-        // 只有当两个点都在合理范围内时才启动动画
-        if (this.isPointVisible(prevX, prevY) || this.isPointVisible(newX, newY)) {
-          this.startLineAnimation(
-            { x: prevX, y: prevY },
-            { x: newX, y: newY }
-          );
-        } else {
-          // 点不在可见范围内，直接重绘
-          this.drawChart();
-        }
-      }
-    } else {
-      // 没有动画或第一个数据点，立即重绘
-      this.drawChart();
+    // 限制缓冲区大小
+    if (this.dataStability.pendingData.length > this.dataStability.maxPendingCount) {
+      this.dataStability.pendingData.shift();
     }
     
-    // 保持数据在合理范围内，但保留足够的数据确保折线完整显示
-    // 优化截断策略：只在数据量超过阈值时才截断，避免频繁截断影响折线连续性
-    const maxDataPoints = Math.max(1000, this.timeRange * 8 / 500); // 动态计算最大数据点数
+    // 如果不在处理中，启动稳定性检查
+    if (!this.dataStability.isProcessing) {
+      this.startDataStabilityCheck();
+    }
+  }
+  
+  // 启动数据稳定性检查
+  startDataStabilityCheck() {
+    this.dataStability.isProcessing = true;
     
-    if (this.data.length > maxDataPoints * 1.2) { // 超过120%阈值时才截断
+    // 清除之前的定时器
+    if (this.dataStability.renderTimer) {
+      clearTimeout(this.dataStability.renderTimer);
+    }
+    
+    // 设置稳定性检查定时器
+    this.dataStability.renderTimer = setTimeout(() => {
+      this.processStableData();
+    }, this.dataStability.stabilityThreshold);
+  }
+  
+  // 处理稳定的数据
+  processStableData() {
+    if (this.dataStability.pendingData.length === 0) {
+      this.dataStability.isProcessing = false;
+      return;
+    }
+    
+    const now = Date.now();
+    const stableData = [];
+    
+    // 找出稳定的数据（接收时间超过稳定阈值的数据）
+    this.dataStability.pendingData.forEach((data, index) => {
+      const dataAge = now - data.receivedTime;
+      if (dataAge >= this.dataStability.stabilityThreshold) {
+        stableData.push(data);
+      }
+    });
+    
+    // 如果有稳定的数据，进行批量处理
+    if (stableData.length > 0) {
+      // 从缓冲区移除已处理的数据
+      this.dataStability.pendingData = this.dataStability.pendingData.filter(data => {
+        return !stableData.includes(data);
+      });
+      
+      // 批量添加稳定的数据到实际数据数组
+      const previousDataLength = this.data.length;
+      stableData.forEach(data => {
+        // 移除临时属性
+        const { receivedTime, ...cleanData } = data;
+        this.data.push(cleanData);
+      });
+      
+      // 更新价格范围
+      this.updatePriceRange();
+      
+      // 验证并调整标记点位置
+      this.validateAndAdjustMarkers();
+      
+      // 更新时间基准
+      this.updateRenderTimeBase();
+      
+      // 重绘图表
+      this.drawChart();
+      
+      // 数据截断逻辑
+      this.performDataCleanup();
+      
+      this.dataStability.lastStableTime = now;
+    }
+    
+    // 如果还有待处理的数据，继续检查
+    if (this.dataStability.pendingData.length > 0) {
+      this.dataStability.renderTimer = setTimeout(() => {
+        this.processStableData();
+      }, this.dataStability.stabilityThreshold / 2); // 更频繁的检查
+    } else {
+      this.dataStability.isProcessing = false;
+    }
+  }
+  
+  // 更新渲染时间基准
+  updateRenderTimeBase() {
+    const now = Date.now();
+    if (now - this.renderTimeBase.lastUpdateTime >= this.renderTimeBase.updateInterval) {
+      this.renderTimeBase.currentTime = now;
+      this.renderTimeBase.lastUpdateTime = now;
+    }
+  }
+  
+  // 执行数据清理
+  performDataCleanup() {
+    // 保持数据在合理范围内，但保留足够的数据确保折线完整显示
+    const maxDataPoints = Math.max(1000, this.timeRange * 8 / 500);
+    
+    if (this.data.length > maxDataPoints * 1.2) {
       const cutoffTime = Date.now() - this.timeRange * 8;
       const originalLength = this.data.length;
       this.data = this.data.filter(d => d.timestamp > cutoffTime);
@@ -814,7 +887,7 @@ export class PixiChart {
     // 清理过期的标记点
     this.cleanupExpiredMarkers();
   }
-
+  
   // 清理过期的标记点
   cleanupExpiredMarkers() {
     const cutoffTime = Date.now() - this.timeRange * 3; // 给标记点更长的保留时间
@@ -1086,6 +1159,16 @@ export class PixiChart {
   destroy() {
     // 停止随机标记点定时器
     this.stopRandomMarkerTimer();
+    
+    // 清理数据稳定性定时器
+    if (this.dataStability.renderTimer) {
+      clearTimeout(this.dataStability.renderTimer);
+      this.dataStability.renderTimer = null;
+    }
+    
+    // 清理数据稳定性状态
+    this.dataStability.pendingData = [];
+    this.dataStability.isProcessing = false;
     
     if (this.app) {
       this.app.destroy(true);
@@ -2467,5 +2550,60 @@ export class PixiChart {
       max: this.priceRange.max,
       spread: this.priceRange.max - this.priceRange.min
     };
+  }
+  
+  // 数据稳定性控制方法
+  setDataStabilityThreshold(threshold) {
+    this.dataStability.stabilityThreshold = Math.max(50, Math.min(500, threshold));
+    console.log(`数据稳定性阈值已设置为: ${this.dataStability.stabilityThreshold}ms`);
+  }
+  
+  getDataStabilityThreshold() {
+    return this.dataStability.stabilityThreshold;
+  }
+  
+  setMaxPendingDataCount(count) {
+    this.dataStability.maxPendingCount = Math.max(1, Math.min(10, count));
+    console.log(`最大待处理数据数量已设置为: ${this.dataStability.maxPendingCount}`);
+  }
+  
+  getDataStabilityStatus() {
+    return {
+      pendingCount: this.dataStability.pendingData.length,
+      isProcessing: this.dataStability.isProcessing,
+      stabilityThreshold: this.dataStability.stabilityThreshold,
+      maxPendingCount: this.dataStability.maxPendingCount,
+      lastStableTime: this.dataStability.lastStableTime
+    };
+  }
+  
+  // 强制处理所有待处理数据（调试用）
+  flushPendingData() {
+    if (this.dataStability.pendingData.length > 0) {
+      console.log(`强制处理 ${this.dataStability.pendingData.length} 个待处理数据点`);
+      
+      // 清除定时器
+      if (this.dataStability.renderTimer) {
+        clearTimeout(this.dataStability.renderTimer);
+      }
+      
+      // 立即处理所有数据
+      const allData = [...this.dataStability.pendingData];
+      this.dataStability.pendingData = [];
+      
+      allData.forEach(data => {
+        const { receivedTime, ...cleanData } = data;
+        this.data.push(cleanData);
+      });
+      
+      this.updatePriceRange();
+      this.validateAndAdjustMarkers();
+      this.updateRenderTimeBase();
+      this.drawChart();
+      this.performDataCleanup();
+      
+      this.dataStability.isProcessing = false;
+      this.dataStability.lastStableTime = Date.now();
+    }
   }
 } 
