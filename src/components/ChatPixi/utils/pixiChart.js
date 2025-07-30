@@ -387,8 +387,8 @@ export class PixiChart {
     const height = this.options.height;
     const currentTime = Date.now();
     
-    // 最新时间在右边缘，与折线图保持一致
-    const latestTimeX = width; // 改为100%，即右边缘
+    // 最新时间在二分之一处，与折线图保持一致
+    const latestTimeX = width * 0.5; // 改为50%位置
     
     // 设置网格样式
     this.gridGraphics.lineStyle(1, this.options.gridColor, 0.3);
@@ -1389,12 +1389,12 @@ export class PixiChart {
   
   // 统一的时间到X坐标转换方法
   timeToX(timestamp, currentTime, chartWidth) {
-    // 最新时间在右边缘，让过去数据从左侧边缘开始显示
-    const latestX = chartWidth; // 右边缘
+    // 当前时间放在二分之一处，为历史和未来数据提供平衡空间
+    const latestX = chartWidth * 0.5; // 改为50%位置
     const timeDiff = currentTime - timestamp;
     
-    // 直接基于timeRange计算坐标，不再使用scaleX和offsetX
-    const baseX = latestX - (timeDiff / this.timeRange) * chartWidth;
+    // 直接基于timeRange计算坐标，历史数据占50%的空间
+    const baseX = latestX - (timeDiff / this.timeRange) * chartWidth * 0.5; // 历史数据占50%的空间
     
     // 如果启用了平滑流动，应用时间插值（仅对最新数据点）
     let transformedX = baseX;
@@ -1410,7 +1410,7 @@ export class PixiChart {
       if (isRecentData && isLatestPoint) {
         const timeOffset = deltaTime * 0.001; // 时间偏移因子
         const smoothedTimeDiff = timeDiff - timeOffset;
-        const smoothedX = latestX - (smoothedTimeDiff / this.timeRange) * chartWidth;
+        const smoothedX = latestX - (smoothedTimeDiff / this.timeRange) * chartWidth * 0.5;
         
         // 限制平滑变化的幅度，防止过大的跳跃
         const maxSmoothingDelta = 5; // 最大平滑变化像素
@@ -1529,25 +1529,30 @@ export class PixiChart {
     const chartWidth = this.options.width;
     const chartHeight = this.options.height;
     
-    // 使用配置的时间间隔
-    const futureTime = currentTime + this.options.futureTimeLineInterval;
+    // 使用统一的未来时间偏移计算方法
+    const futureTimeOffset = this.calculateFutureTimeOffset();
+    const futureTime = currentTime + futureTimeOffset;
     
     // 使用与折线相同的坐标转换方法计算X坐标
     const futureX = this.timeToX(futureTime, currentTime, chartWidth);
     
-    // 检查时间线是否在可视范围内
-    if (futureX >= -50 && futureX <= chartWidth + 50) {
+    // 检查时间线是否在可视范围内（现在有更多未来空间）
+    if (futureX >= 0 && futureX <= chartWidth) {
       // 绘制黄色的未来时间线
       this.futureTimeLineGraphics.lineStyle(2, 0xFFD700, 0.8); // 黄色，透明度0.8，线宽2
       this.futureTimeLineGraphics.moveTo(futureX, 0);
       this.futureTimeLineGraphics.lineTo(futureX, chartHeight);
-      
     }
   }
 
-  // 新增：设置未来时间线间隔
+  // 设置未来时间线间隔（兼容性方法，现在主要依赖时间间隔联动）
   setFutureTimeLineInterval(intervalMs) {
+    // 保留配置以维持兼容性，但实际使用联动计算
     this.options.futureTimeLineInterval = intervalMs;
+    
+    // 触发重绘以更新未来时间线位置
+    this.drawFutureTimeLine();
+    this.drawMarkers();
   }
 
   // 新增：切换未来时间线显示状态
@@ -1697,8 +1702,9 @@ export class PixiChart {
     this.markers.forEach(marker => {
       // 只检查下单标记点（非随机标记点）
       if (!marker.isRandom) {
-        // 计算标记点时间后的X坐标（竖线位置）- 使用配置的时间间隔
-        const markerFutureTime = marker.timestamp + this.options.futureTimeLineInterval;
+        // 计算标记点时间后的X坐标（竖线位置）- 使用联动的时间间隔
+        const futureTimeOffset = this.calculateFutureTimeOffset();
+        const markerFutureTime = marker.timestamp + futureTimeOffset;
         const markerFutureX = this.timeToX(markerFutureTime, currentTime, chartWidth);
         
         // 计算折线端点位置
@@ -1741,8 +1747,9 @@ export class PixiChart {
       const x = this.timeToX(marker.timestamp, currentTime, chartWidth);
       const y = this.priceToY(marker.price);
       
-      // 计算标记点时间后的X坐标（竖线位置）- 使用配置的时间间隔
-      const markerFutureTime = marker.timestamp + this.options.futureTimeLineInterval;
+      // 计算标记点时间后的X坐标（竖线位置）- 使用联动的时间间隔
+      const futureTimeOffset = this.calculateFutureTimeOffset();
+      const markerFutureTime = marker.timestamp + futureTimeOffset;
       const markerFutureX = this.timeToX(markerFutureTime, currentTime, chartWidth);
       
       // 检查标记点是否在可视范围内（使用与折线相同的可见性检查）
@@ -2703,5 +2710,66 @@ export class PixiChart {
       this.dataStability.isProcessing = false;
       this.dataStability.lastStableTime = Date.now();
     }
+  }
+
+  // 获取时间轴布局信息
+  getTimeAxisLayout() {
+    return {
+      currentTimePosition: 0.5, // 当前时间在50%位置
+      historySpaceRatio: 0.5, // 历史数据占50%空间
+      futureSpaceRatio: 0.5, // 未来数据占50%空间
+      currentTimeX: this.options.width * 0.5,
+      maxFutureTimeX: this.options.width,
+      description: '当前时间位于图表50%位置，左侧50%为历史数据区域，右侧50%为未来数据区域'
+    };
+  }
+
+  // 新增：计算未来时间偏移 - 与当前时间间隔联动
+  calculateFutureTimeOffset() {
+    const currentTimeRangeSeconds = this.timeRange / 1000;
+    let futureTimeOffset;
+    
+    // 根据当前时间间隔动态计算未来时间线的偏移
+    // 由于现在有50%的未来空间，可以设置更合理的比例
+    if (currentTimeRangeSeconds <= 30) {
+      // 15秒和30秒：未来时间线设置为时间范围的1/2
+      futureTimeOffset = this.timeRange * 0.5;
+    } else if (currentTimeRangeSeconds <= 180) {
+      // 3分钟：未来时间线设置为时间范围的1/3
+      futureTimeOffset = this.timeRange * 0.33;
+    } else if (currentTimeRangeSeconds <= 300) {
+      // 5分钟：未来时间线设置为时间范围的1/4
+      futureTimeOffset = this.timeRange * 0.25;
+    } else {
+      // 10分钟：未来时间线设置为时间范围的1/5
+      futureTimeOffset = this.timeRange * 0.2;
+    }
+    
+    return futureTimeOffset;
+  }
+
+  // 获取未来时间线信息
+  getFutureTimeLineInfo() {
+    const futureTimeOffset = this.calculateFutureTimeOffset();
+    const offsetSeconds = Math.round(futureTimeOffset / 1000);
+    
+    let displayText = '';
+    if (offsetSeconds < 60) {
+      displayText = `${offsetSeconds}秒`;
+    } else if (offsetSeconds < 3600) {
+      const minutes = Math.round(offsetSeconds / 60);
+      displayText = `${minutes}分钟`;
+    } else {
+      const hours = Math.round(offsetSeconds / 3600);
+      displayText = `${hours}小时`;
+    }
+    
+    return {
+      offsetMs: futureTimeOffset,
+      offsetSeconds: offsetSeconds,
+      displayText: displayText,
+      timeRangeRatio: futureTimeOffset / this.timeRange,
+      description: `未来时间线距离当前时间 ${displayText}，占当前时间范围的 ${(futureTimeOffset / this.timeRange * 100).toFixed(1)}%`
+    };
   }
 } 

@@ -63,6 +63,10 @@
           <span class="label">位置:</span>
           <span class="value history-mode">历史数据</span>
         </span>
+        <span class="stat-item">
+          <span class="label">时间轴:</span>
+          <span class="value time-axis-info">当前时间@50%</span>
+        </span>
       </div>
       <div class="control-buttons">
         <button @click="zoomIn" class="control-btn" :disabled="!canZoomIn">
@@ -940,6 +944,13 @@ defineExpose({
   },
   getAvailableTimeIntervals: () => {
     return pixiChart ? pixiChart.getAvailableTimeIntervals() : [];
+  },
+  // 时间轴布局信息
+  getTimeAxisLayout: () => {
+    return pixiChart ? pixiChart.getTimeAxisLayout() : null;
+  },
+  getFutureTimeLineInfo: () => {
+    return pixiChart ? pixiChart.getFutureTimeLineInfo() : null;
   }
 });
 </script>
@@ -1285,6 +1296,12 @@ defineExpose({
 .history-mode {
   color: #ffa500 !important;
   font-weight: bold;
+}
+
+.time-axis-info {
+  color: #00aaff !important;
+  font-weight: bold;
+  font-size: 12px;
 }
 
 .loading-indicator {
