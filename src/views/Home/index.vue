@@ -478,14 +478,13 @@ watch(
   }
 );
 
-// 新增：监听PriceChart组件初始化和交易时间变化，确保未来时间线同步
+// 新增：监听PriceChart组件初始化和交易时间变化，确保未来时间线和图表时间范围同步
 watch(
   [() => priceChartRef.value, () => placeOrderForm.value.expirationTime],
   ([chartRef, expirationTime]) => {
     if (chartRef && expirationTime) {
-      // PriceChart组件已初始化且有交易时间，同步未来时间线
-      chartRef.setFutureTimeLineInterval(expirationTime * 1000);
-      console.log(`监听到变化，同步未来时间线间隔: ${expirationTime}秒`);
+      // 使用统一的同步方法，确保三组件完全同步
+      syncAllTimeComponents(expirationTime, 'watch监听器初始化');
     }
   },
   { immediate: true }
@@ -861,20 +860,9 @@ const decreaseTime = () => {
   }
   let i = timesList.value.indexOf(placeOrderForm.value.expirationTime) //获取当前下标
   let time = timesList.value[i - 1] || timesList.value[timesList.value.length - 1]
-  placeOrderForm.value = {
-    ...placeOrderForm.value,
-    expirationTime: time
-  };
   
-  // 更新ChatPixi组件中的黄色未来时间线
-  if (priceChartRef.value) {
-    priceChartRef.value.setFutureTimeLineInterval(time * 1000); // 转换为毫秒
-    console.log(`交易时间减少到: ${time}秒，未来时间线已更新`);
-  }
-  
-  if (lineChart.value) {
-    lineChart.value.changeLastGap(time * 2)
-  }
+  // 使用统一的同步方法
+  syncAllTimeComponents(time, '减少交易时间按钮');
 };
 const increaseTime = () => {
   if (!isLogin()) {
@@ -882,37 +870,17 @@ const increaseTime = () => {
   }
   const i = timesList.value.indexOf(placeOrderForm.value.expirationTime)
   const time = timesList.value[i + 1] || timesList.value[0]
-  placeOrderForm.value = {
-    ...placeOrderForm.value,
-    expirationTime: time
-  }
   
-  // 更新ChatPixi组件中的黄色未来时间线
-  if (priceChartRef.value) {
-    priceChartRef.value.setFutureTimeLineInterval(time * 1000); // 转换为毫秒
-    console.log(`交易时间增加到: ${time}秒，未来时间线已更新`);
-  }
-  
-  // 调用图表方法
-  if (lineChart.value) {
-    lineChart.value.changeLastGap(time * 2)
-  }
+  // 使用统一的同步方法
+  syncAllTimeComponents(time, '增加交易时间按钮');
 }
 const isVisibleTime = ref(false);
 // 选择时间
 const selectTime = (time) => {
-  placeOrderForm.value.expirationTime = time
+  // 使用统一的同步方法
+  syncAllTimeComponents(time, '时间选择弹窗');
   
-  // 更新ChatPixi组件中的黄色未来时间线
-  if (priceChartRef.value) {
-    priceChartRef.value.setFutureTimeLineInterval(time * 1000); // 转换为毫秒
-    console.log(`选择交易时间: ${time}秒，未来时间线已更新`);
-  }
-  
-  // 调用图表方法
-  if (lineChart.value && lineChart.value.changeLastGap) {
-    lineChart.value.changeLastGap(time * 2);
-  }
+  // 关闭弹窗
   isVisibleTime.value = false
 };
 
@@ -1395,6 +1363,11 @@ onMounted(() => {
   if (parentRef.value) {
     resizeObserver.observe(parentRef.value)
   }
+  
+  // 验证时间档位对应关系
+  setTimeout(() => {
+    validateTimeIntervalMapping();
+  }, 1000); // 延迟1秒确保组件完全初始化
 })
 
 onBeforeUnmount(() => {
@@ -1544,6 +1517,173 @@ const testLoadHistory = () => {
     console.warn('PriceChart组件不可用');
   }
 };
+
+// 根据交易时间获取最佳的图表时间间隔
+function getOptimalChartTimeInterval(tradeTimeSeconds) {
+  // 图表可用的时间间隔选项（秒）- 严格按照要求的档位
+  const availableIntervals = [15, 30, 180, 300, 600]; // 15秒、30秒、3分钟、5分钟、10分钟
+  
+  // 严格按照交易时间对应到指定档位
+  if (tradeTimeSeconds <= 15) {
+    // 交易时间15秒以内，使用15秒图表间隔
+    return 15;
+  } else if (tradeTimeSeconds <= 30) {
+    // 交易时间15-30秒，使用30秒图表间隔
+    return 30;
+  } else if (tradeTimeSeconds <= 180) {
+    // 交易时间30秒-3分钟，使用3分钟图表间隔
+    return 180;
+  } else if (tradeTimeSeconds <= 300) {
+    // 交易时间3-5分钟，使用5分钟图表间隔
+    return 300;
+  } else {
+    // 交易时间超过5分钟，使用10分钟图表间隔
+    return 600;
+  }
+}
+
+// 获取当前联动状态信息
+function getCurrentLinkageInfo() {
+  const tradeTime = placeOrderForm.value.expirationTime;
+  const chartTimeInterval = getOptimalChartTimeInterval(tradeTime);
+  
+  return {
+    tradeTime: tradeTime,
+    tradeTimeDisplay: convertSecondsToMinutes(tradeTime),
+    chartTimeInterval: chartTimeInterval,
+    chartTimeDisplay: chartTimeInterval < 60 ? `${chartTimeInterval}秒` : 
+                     chartTimeInterval < 3600 ? `${Math.round(chartTimeInterval/60)}分钟` : 
+                     `${Math.round(chartTimeInterval/3600)}小时`,
+    linkageRule: `交易时间${convertSecondsToMinutes(tradeTime)} → 图表时间范围${chartTimeInterval < 60 ? `${chartTimeInterval}秒` : `${Math.round(chartTimeInterval/60)}分钟`}`
+  };
+}
+
+// 统一的时间同步方法 - 确保交易时间、图表时间间隔、黄色未来时间轴三者完全同步
+function syncAllTimeComponents(newTradeTime, triggerSource = 'unknown') {
+  if (!priceChartRef.value) {
+    console.warn('⚠️ PriceChart组件未初始化，无法同步时间组件');
+    return;
+  }
+
+  // 1. 更新交易时间
+  placeOrderForm.value.expirationTime = newTradeTime;
+
+  // 2. 根据交易时间计算对应的图表时间间隔
+  const chartTimeInterval = getOptimalChartTimeInterval(newTradeTime);
+
+  // 3. 同步更新图表时间间隔
+  priceChartRef.value.setTimeIntervalBySeconds(chartTimeInterval);
+
+  // 4. 同步更新黄色未来时间线间隔
+  priceChartRef.value.setFutureTimeLineInterval(newTradeTime * 1000);
+
+  // 5. 获取同步状态信息
+  const linkageInfo = getCurrentLinkageInfo();
+  
+  // 6. 输出详细的同步日志
+  console.log(`🔄 三组件时间同步 [触发源: ${triggerSource}]:`, {
+    交易时间: `${newTradeTime}秒 (${convertSecondsToMinutes(newTradeTime)})`,
+    图表时间间隔: `${chartTimeInterval}秒`,
+    未来时间轴: `${newTradeTime}秒后到期`,
+    联动规则: linkageInfo.linkageRule,
+    档位映射: {
+      '15秒': '15秒图表间隔',
+      '30秒': '30秒图表间隔', 
+      '180秒': '3分钟图表间隔',
+      '300秒': '5分钟图表间隔',
+      '600秒': '10分钟图表间隔'
+    }
+  });
+
+  // 7. 调用旧图表方法（兼容性）
+  if (lineChart.value && lineChart.value.changeLastGap) {
+    lineChart.value.changeLastGap(newTradeTime * 2);
+  }
+
+  return {
+    tradeTime: newTradeTime,
+    chartTimeInterval: chartTimeInterval,
+    success: true
+  };
+}
+
+// 验证时间档位对应关系
+function validateTimeIntervalMapping() {
+  const standardIntervals = [15, 30, 180, 300, 600]; // 标准档位
+  const mappingResults = [];
+  
+  console.log('📊 时间档位对应关系验证:');
+  console.log('=====================================');
+  
+  standardIntervals.forEach(tradeTime => {
+    const chartInterval = getOptimalChartTimeInterval(tradeTime);
+    const mapping = {
+      交易时间: `${tradeTime}秒`,
+      图表间隔: `${chartInterval}秒`,
+      是否匹配: tradeTime <= 15 ? chartInterval === 15 :
+                tradeTime <= 30 ? chartInterval === 30 :
+                tradeTime <= 180 ? chartInterval === 180 :
+                tradeTime <= 300 ? chartInterval === 300 :
+                chartInterval === 600
+    };
+    mappingResults.push(mapping);
+    
+    const status = mapping.是否匹配 ? '✅' : '❌';
+    console.log(`${status} ${mapping.交易时间} → ${mapping.图表间隔}`);
+  });
+  
+  console.log('=====================================');
+  return mappingResults;
+}
+
+// 测试时间同步功能 - 可在控制台调用
+function testTimeSync(testTime = 180) {
+  console.log(`🧪 测试时间同步功能，测试时间: ${testTime}秒`);
+  
+  if (!priceChartRef.value) {
+    console.error('❌ PriceChart组件未初始化，无法测试');
+    return;
+  }
+  
+  // 记录同步前状态
+  const beforeSync = {
+    交易时间: placeOrderForm.value.expirationTime,
+    图表间隔: priceChartRef.value.getCurrentTimeInterval()?.interval || '未知',
+    未来时间轴: priceChartRef.value.getFutureTimeLineInfo()?.interval || '未知'
+  };
+  
+  console.log('同步前状态:', beforeSync);
+  
+  // 执行同步
+  const result = syncAllTimeComponents(testTime, '手动测试');
+  
+  // 记录同步后状态
+  setTimeout(() => {
+    const afterSync = {
+      交易时间: placeOrderForm.value.expirationTime,
+      图表间隔: priceChartRef.value.getCurrentTimeInterval()?.interval || '未知',
+      未来时间轴: priceChartRef.value.getFutureTimeLineInfo()?.interval || '未知'
+    };
+    
+    console.log('同步后状态:', afterSync);
+    console.log('同步结果:', result);
+    
+    // 验证同步是否成功
+    const isSuccess = afterSync.交易时间 === testTime && 
+                     afterSync.图表间隔 === getOptimalChartTimeInterval(testTime) + '秒';
+    
+    console.log(isSuccess ? '✅ 同步测试成功' : '❌ 同步测试失败');
+  }, 100);
+  
+  return result;
+}
+
+// 将测试方法暴露到全局，方便控制台调用
+if (typeof window !== 'undefined') {
+  window.testTimeSync = testTimeSync;
+  window.validateTimeMapping = validateTimeIntervalMapping;
+  window.syncTime = syncAllTimeComponents;
+}
 </script>
 <style lang="scss" scoped>
 .page-box {

@@ -2729,19 +2729,22 @@ export class PixiChart {
     const currentTimeRangeSeconds = this.timeRange / 1000;
     let futureTimeOffset;
     
-    // 根据当前时间间隔动态计算未来时间线的偏移
-    // 由于现在有50%的未来空间，可以设置更合理的比例
-    if (currentTimeRangeSeconds <= 30) {
-      // 15秒和30秒：未来时间线设置为时间范围的1/2
+    // 严格按照指定档位计算未来时间线的偏移
+    // 确保与交易时间和图表时间间隔保持完全同步
+    if (currentTimeRangeSeconds <= 15) {
+      // 15秒档位：未来时间线设置为时间范围的1/2 (7.5秒后)
+      futureTimeOffset = this.timeRange * 0.5;
+    } else if (currentTimeRangeSeconds <= 30) {
+      // 30秒档位：未来时间线设置为时间范围的1/2 (15秒后)
       futureTimeOffset = this.timeRange * 0.5;
     } else if (currentTimeRangeSeconds <= 180) {
-      // 3分钟：未来时间线设置为时间范围的1/3
+      // 180秒(3分钟)档位：未来时间线设置为时间范围的1/3 (1分钟后)
       futureTimeOffset = this.timeRange * 0.33;
     } else if (currentTimeRangeSeconds <= 300) {
-      // 5分钟：未来时间线设置为时间范围的1/4
+      // 300秒(5分钟)档位：未来时间线设置为时间范围的1/4 (1分15秒后)
       futureTimeOffset = this.timeRange * 0.25;
     } else {
-      // 10分钟：未来时间线设置为时间范围的1/5
+      // 600秒(10分钟)档位：未来时间线设置为时间范围的1/5 (2分钟后)
       futureTimeOffset = this.timeRange * 0.2;
     }
     
