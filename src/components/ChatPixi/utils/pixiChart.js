@@ -1911,7 +1911,7 @@ export class PixiChart {
         if (marker.isRandom && marker.isExpandable) {
           // 游客标记点 - 绘制折线上的小点和连接线到头像
           const scaleFactor = Math.max(0.5, Math.min(2, 1 / this.viewState.scaleX));
-          const avatarOffsetY = 30 * scaleFactor; // 头像向上偏移
+          const avatarOffsetY = 20 * scaleFactor; // 头像向上偏移，缩短连接线
           const avatarX = x;
           const avatarY = y - avatarOffsetY;
           
@@ -1926,8 +1926,8 @@ export class PixiChart {
           this.markerGraphics.drawCircle(x, y, dotSize);
           this.markerGraphics.lineStyle(0);
           
-          // 绘制2px连接线从小点到头像
-          this.markerGraphics.lineStyle(2, marker.color, 0.8);
+          // 绘制1px连接线从小点到头像
+          this.markerGraphics.lineStyle(1, marker.color, 0.8);
           this.markerGraphics.moveTo(x, y);
           this.markerGraphics.lineTo(avatarX, avatarY);
           this.markerGraphics.lineStyle(0);
@@ -1970,155 +1970,8 @@ export class PixiChart {
           amountLabel.x = actualX - amountLabel.width / 2; // 水平居中（使用头像位置）
           amountLabel.y = actualY - labelOffsetY; // 在标记点上方（使用头像位置）
           
-          // 如果是可展开的标记点且已展开，显示name信息
-          if (marker.isExpandable && marker.isExpanded && marker.name) {
-            // 创建name标签
-            const nameText = marker.name;
-            const nameStyle = {
-              fontFamily: 'Arial',
-              fontSize: fontSize - 2, // 稍小的字体
-              fill: 0xffffff,
-              fontWeight: 'normal',
-              stroke: 0x000000,
-              strokeThickness: 1
-            };
-            
-            const nameLabel = new PIXI.Text(nameText, nameStyle);
-            nameLabel.x = actualX - nameLabel.width / 2; // 水平居中（使用头像位置）
-            nameLabel.y = actualY - labelOffsetY - 40; // 调整位置，为价格标签留出空间
-            
-            // 创建价格标签
-            const priceText = `@$${marker.price.toFixed(2)}`;
-            const priceStyle = {
-              fontFamily: 'Arial',
-              fontSize: fontSize - 2, // 与用户名相同大小
-              fill: 0xFFD700, // 金色，突出显示价格
-              fontWeight: 'normal',
-              stroke: 0x000000,
-              strokeThickness: 1
-            };
-            
-            const priceLabel = new PIXI.Text(priceText, priceStyle);
-            priceLabel.x = actualX - priceLabel.width / 2; // 水平居中（使用头像位置）
-            priceLabel.y = actualY - labelOffsetY - 20; // 在金额标签上方，用户名下方
-            
-            // 确保name标签在可视范围内
-            if (nameLabel.x < 0) {
-              nameLabel.x = 5;
-            } else if (nameLabel.x + nameLabel.width > chartWidth) {
-              nameLabel.x = chartWidth - nameLabel.width - 5;
-            }
-            
-            // 确保price标签在可视范围内
-            if (priceLabel.x < 0) {
-              priceLabel.x = 5;
-            } else if (priceLabel.x + priceLabel.width > chartWidth) {
-              priceLabel.x = chartWidth - priceLabel.width - 5;
-            }
-            
-            // 如果上方空间不足，将所有标签显示在下方
-            if (nameLabel.y < 0) {
-              nameLabel.y = actualY + (marker.isRandom ? 11 : 10) + 25; // 如果上方超出，则显示在下方，头像偏移调整为11
-              priceLabel.y = actualY + (marker.isRandom ? 11 : 10) + 45; // 价格标签在用户名下方
-              amountLabel.y = actualY + (marker.isRandom ? 11 : 10) + 65; // 金额标签在价格下方
-            }
-            
-            this.markerTextContainer.addChild(nameLabel);
-            this.markerTextContainer.addChild(priceLabel);
-            
-            // 创建展开状态的背景框 - 调整高度以容纳三行文本和头像
-            const padding = 4;
-            const avatarSpacing = 26; // 为更大的头像预留更多空间，从20增加到26
-            const bgWidth = Math.max(amountLabel.width, nameLabel.width, priceLabel.width) + padding * 2 + avatarSpacing;
-            const bgHeight = 65; // 稍微增加高度以适应更大的头像，从60增加到65
-            
-            // 根据文本标签位置确定背景框位置
-            const isDisplayedBelow = nameLabel.y > actualY; // 判断文本是否显示在标记点下方
-            const bgX = actualX - bgWidth / 2;
-            const bgY = isDisplayedBelow ? 
-              actualY + (marker.isRandom ? 11 : 10) + 20 : // 下方显示时的背景框位置
-              actualY - labelOffsetY - 45; // 上方显示时的背景框位置
-            
-            const bgGraphics = new PIXI.Graphics();
-            bgGraphics.beginFill(0x000000, 0.7); // 半透明黑色背景
-            bgGraphics.lineStyle(1, marker.color, 0.8); // 使用标记点颜色作为边框
-            bgGraphics.drawRoundedRect(
-              bgX, 
-              bgY,
-              bgWidth, 
-              bgHeight, 
-              5
-            );
-            bgGraphics.endFill();
-            
-            // 在背景框左上角绘制小头像
-            const avatarSize = 18; // 展开框内的头像大小，从12增加到18
-            const avatarX = bgX + padding + avatarSize / 2 + 2;
-            const avatarY = bgY + padding + avatarSize / 2 + 2;
-            
-            // 绘制头像背景圆圈
-            bgGraphics.beginFill(0xffffff, 1);
-            bgGraphics.drawCircle(avatarX, avatarY, avatarSize / 2);
-            bgGraphics.endFill();
-            
-            // 绘制头像边框
-            bgGraphics.lineStyle(1.5, marker.color, 1); // 稍微增加边框宽度
-            bgGraphics.drawCircle(avatarX, avatarY, avatarSize / 2);
-            bgGraphics.lineStyle(0);
-            
-            // 绘制简化的头像图标
-            const faceSize = avatarSize * 0.65; // 稍微调整比例
-            const faceColor = marker.type === 'buy' ? 0x4CAF50 : 0xF44336;
-            
-            // 绘制头部
-            bgGraphics.beginFill(faceColor, 1);
-            bgGraphics.drawCircle(avatarX, avatarY - faceSize * 0.15, faceSize * 0.25);
-            bgGraphics.endFill();
-            
-            // 绘制身体
-            bgGraphics.beginFill(faceColor, 1);
-            bgGraphics.drawRoundedRect(
-              avatarX - faceSize * 0.15, 
-              avatarY + faceSize * 0.1, 
-              faceSize * 0.3, 
-              faceSize * 0.25, 
-              faceSize * 0.05
-            );
-            bgGraphics.endFill();
-            
-            // 绘制眼睛
-            const eyeSize = faceSize * 0.08; // 保持眼睛比例
-            bgGraphics.beginFill(0xffffff, 1);
-            bgGraphics.drawCircle(avatarX - faceSize * 0.08, avatarY - faceSize * 0.2, eyeSize);
-            bgGraphics.drawCircle(avatarX + faceSize * 0.08, avatarY - faceSize * 0.2, eyeSize);
-            bgGraphics.endFill();
-            
-            // 绘制瞳孔
-            const pupilSize = eyeSize * 0.6;
-            bgGraphics.beginFill(0x333333, 1);
-            bgGraphics.drawCircle(avatarX - faceSize * 0.08, avatarY - faceSize * 0.2, pupilSize);
-            bgGraphics.drawCircle(avatarX + faceSize * 0.08, avatarY - faceSize * 0.2, pupilSize);
-            bgGraphics.endFill();
-            
-            // 绘制嘴巴（微笑）
-            bgGraphics.lineStyle(1.5, 0xffffff, 1);
-            bgGraphics.arc(avatarX, avatarY - faceSize * 0.05, faceSize * 0.12, 0.2, Math.PI - 0.2);
-            bgGraphics.lineStyle(0);
-            
-            // 添加头发/帽子装饰
-            bgGraphics.beginFill(0x8B4513, 1); // 棕色头发
-            bgGraphics.drawEllipse(avatarX, avatarY - faceSize * 0.35, faceSize * 0.3, faceSize * 0.15);
-            bgGraphics.endFill();
-            
-            this.markerTextContainer.addChild(bgGraphics);
-            
-            // 调整文本标签位置，为头像留出空间
-            const textOffsetX = avatarSpacing / 2;
-            nameLabel.x += textOffsetX;
-            priceLabel.x += textOffsetX;
-            amountLabel.x += textOffsetX;
-          } else {
-            // 普通显示模式或不可展开的标记点
+          // 只在未展开状态下显示金额标签
+          if (!marker.isExpanded) {
             // 确保标签在可视范围内
             if (amountLabel.x < 0) {
               amountLabel.x = 5;
@@ -2159,73 +2012,170 @@ export class PixiChart {
   drawAvatarMarker(x, y, marker) {
     // 根据缩放级别调整头像大小 - 调整基础大小与下单标记点一致
     const scaleFactor = Math.max(0.5, Math.min(2, 1 / this.viewState.scaleX));
-    const avatarSize = 8 * scaleFactor; // 从12减小到8，与下单标记点大小一致
+    const avatarSize = 8 * scaleFactor; // 从10减小到8，与下单标记点一致
     
-    // 绘制头像阴影
-    this.markerGraphics.beginFill(0x000000, 0.3); // 半透明黑色阴影
-    this.markerGraphics.drawCircle(x + 1.5, y + 1.5, avatarSize);
-    this.markerGraphics.endFill();
+    // 如果是展开状态，绘制详细信息框替换头像
+    if (marker.isExpanded) {
+      // 计算信息框尺寸
+      const padding = 8;
+      const fontSize = Math.max(10, Math.min(14, 12 / Math.sqrt(this.viewState.scaleX)));
+      
+      // 创建文本内容
+      const nameText = marker.name || 'Unknown';
+      const amountText = `$${marker.amount || 0}`;
+      const priceText = `@$${marker.price.toFixed(2)}`;
+      
+      // 估算文本宽度
+      const textWidth = Math.max(nameText.length * fontSize * 0.6, 
+                                amountText.length * fontSize * 0.6,
+                                priceText.length * fontSize * 0.6);
+      const boxWidth = textWidth + padding * 2;
+      const boxHeight = fontSize * 3 + padding * 2 + 10; // 三行文本的高度
+      
+      // 计算信息框位置（以头像位置为中心）
+      const boxX = x - boxWidth / 2;
+      const boxY = y - boxHeight / 2;
+      
+      // 绘制背景框
+      this.markerGraphics.beginFill(0x000000, 0.85);
+      this.markerGraphics.lineStyle(2, marker.color, 1);
+      this.markerGraphics.drawRoundedRect(boxX, boxY, boxWidth, boxHeight, 6);
+      this.markerGraphics.endFill();
+      this.markerGraphics.lineStyle(0);
+      
+      // 在左上角绘制小头像
+      const miniAvatarSize = 12;
+      const miniAvatarX = boxX + padding + miniAvatarSize / 2;
+      const miniAvatarY = boxY + padding + miniAvatarSize / 2;
+      
+      // 绘制小头像背景
+      this.markerGraphics.beginFill(0xffffff, 1);
+      this.markerGraphics.drawCircle(miniAvatarX, miniAvatarY, miniAvatarSize / 2);
+      this.markerGraphics.endFill();
+      
+      // 绘制小头像边框
+      this.markerGraphics.lineStyle(1, marker.color, 1);
+      this.markerGraphics.drawCircle(miniAvatarX, miniAvatarY, miniAvatarSize / 2);
+      this.markerGraphics.lineStyle(0);
+      
+      // 绘制简化的头像图标
+      const faceSize = miniAvatarSize * 0.6;
+      const faceColor = marker.type === 'buy' ? 0x4CAF50 : 0xF44336;
+      
+      // 头部
+      this.markerGraphics.beginFill(faceColor, 1);
+      this.markerGraphics.drawCircle(miniAvatarX, miniAvatarY - faceSize * 0.1, faceSize * 0.25);
+      this.markerGraphics.endFill();
+      
+      // 身体
+      this.markerGraphics.beginFill(faceColor, 1);
+      this.markerGraphics.drawRoundedRect(
+        miniAvatarX - faceSize * 0.12, 
+        miniAvatarY + faceSize * 0.05, 
+        faceSize * 0.24, 
+        faceSize * 0.2, 
+        faceSize * 0.03
+      );
+      this.markerGraphics.endFill();
+      
+      // 添加文本标签
+      const textStyle = {
+        fontFamily: 'Arial',
+        fontSize: fontSize,
+        fill: 0xffffff,
+        fontWeight: 'bold',
+        stroke: 0x000000,
+        strokeThickness: 1
+      };
+      
+      // 用户名标签
+      const nameLabel = new PIXI.Text(nameText, {
+        ...textStyle,
+        fontSize: fontSize - 1,
+        fontWeight: 'normal'
+      });
+      nameLabel.x = boxX + padding + miniAvatarSize + 8;
+      nameLabel.y = boxY + padding;
+      this.markerTextContainer.addChild(nameLabel);
+      
+      // 价格标签
+      const priceLabel = new PIXI.Text(priceText, {
+        ...textStyle,
+        fontSize: fontSize - 1,
+        fill: 0xFFD700,
+        fontWeight: 'normal'
+      });
+      priceLabel.x = boxX + padding + miniAvatarSize + 8;
+      priceLabel.y = boxY + padding + fontSize + 2;
+      this.markerTextContainer.addChild(priceLabel);
+      
+      // 金额标签
+      const amountLabel = new PIXI.Text(amountText, textStyle);
+      amountLabel.x = boxX + padding + miniAvatarSize + 8;
+      amountLabel.y = boxY + padding + fontSize * 2 + 4;
+      this.markerTextContainer.addChild(amountLabel);
+      
+      return; // 展开状态下不绘制普通头像
+    }
     
+    // 未展开状态，绘制普通头像
     // 绘制头像背景圆圈
-    this.markerGraphics.beginFill(0xffffff, 1); // 白色背景
+    this.markerGraphics.beginFill(0xffffff, 1);
     this.markerGraphics.drawCircle(x, y, avatarSize);
     this.markerGraphics.endFill();
     
-    // 绘制头像边框（根据买涨买跌使用不同颜色）
-    const borderWidth = Math.max(1.5, 2 * scaleFactor); // 稍微减小边框宽度
-    this.markerGraphics.lineStyle(borderWidth, marker.color, 1);
+    // 绘制头像边框
+    this.markerGraphics.lineStyle(2, marker.color, 1);
     this.markerGraphics.drawCircle(x, y, avatarSize);
     this.markerGraphics.lineStyle(0);
     
-    // 绘制简化的头像图标（人脸）
-    const faceSize = avatarSize * 0.7;
-    
-    // 根据买涨买跌使用不同的头像颜色
-    const faceColor = marker.type === 'buy' ? 0x4CAF50 : 0xF44336; // 绿色买涨，红色买跌
+    // 绘制简化的头像图标
+    const faceSize = avatarSize * 0.7; // 从0.8减小到0.7
+    const faceColor = marker.type === 'buy' ? 0x4CAF50 : 0xF44336;
     
     // 绘制头部
     this.markerGraphics.beginFill(faceColor, 1);
-    this.markerGraphics.drawCircle(x, y - faceSize * 0.25, faceSize * 0.35);
+    this.markerGraphics.drawCircle(x, y - faceSize * 0.2, faceSize * 0.3);
     this.markerGraphics.endFill();
     
     // 绘制身体
     this.markerGraphics.beginFill(faceColor, 1);
     this.markerGraphics.drawRoundedRect(
-      x - faceSize * 0.25, 
-      y + faceSize * 0.15, 
-      faceSize * 0.5, 
-      faceSize * 0.35, 
-      faceSize * 0.08
+      x - faceSize * 0.2, 
+      y + faceSize * 0.1, 
+      faceSize * 0.4, 
+      faceSize * 0.3, 
+      faceSize * 0.05
     );
     this.markerGraphics.endFill();
     
     // 绘制眼睛
-    const eyeSize = faceSize * 0.08; // 稍微增大眼睛相对大小，保持可见性
+    const eyeSize = faceSize * 0.1; // 从0.12减小到0.1
     this.markerGraphics.beginFill(0xffffff, 1);
-    this.markerGraphics.drawCircle(x - faceSize * 0.12, y - faceSize * 0.35, eyeSize);
-    this.markerGraphics.drawCircle(x + faceSize * 0.12, y - faceSize * 0.35, eyeSize);
+    this.markerGraphics.drawCircle(x - faceSize * 0.1, y - faceSize * 0.25, eyeSize);
+    this.markerGraphics.drawCircle(x + faceSize * 0.1, y - faceSize * 0.25, eyeSize);
     this.markerGraphics.endFill();
     
     // 绘制瞳孔
     const pupilSize = eyeSize * 0.6;
     this.markerGraphics.beginFill(0x333333, 1);
-    this.markerGraphics.drawCircle(x - faceSize * 0.12, y - faceSize * 0.35, pupilSize);
-    this.markerGraphics.drawCircle(x + faceSize * 0.12, y - faceSize * 0.35, pupilSize);
+    this.markerGraphics.drawCircle(x - faceSize * 0.1, y - faceSize * 0.25, pupilSize);
+    this.markerGraphics.drawCircle(x + faceSize * 0.1, y - faceSize * 0.25, pupilSize);
     this.markerGraphics.endFill();
     
     // 绘制嘴巴（微笑）
-    this.markerGraphics.lineStyle(Math.max(1, 1.5 * scaleFactor), 0xffffff, 1);
-    this.markerGraphics.arc(x, y - faceSize * 0.15, faceSize * 0.12, 0.2, Math.PI - 0.2);
+    this.markerGraphics.lineStyle(1.5, 0xffffff, 1);
+    this.markerGraphics.arc(x, y - faceSize * 0.05, faceSize * 0.12, 0.2, Math.PI - 0.2);
     this.markerGraphics.lineStyle(0);
     
     // 添加头发/帽子装饰
     this.markerGraphics.beginFill(0x8B4513, 1); // 棕色头发
-    this.markerGraphics.drawEllipse(x, y - faceSize * 0.45, faceSize * 0.3, faceSize * 0.15);
+    this.markerGraphics.drawEllipse(x, y - faceSize * 0.35, faceSize * 0.3, faceSize * 0.15);
     this.markerGraphics.endFill();
     
     // 如果是可展开的标记点，在头像上添加一个小的展开指示器
     if (marker.isExpandable) {
-      const indicatorSize = 3 * scaleFactor; // 从4减小到3
+      const indicatorSize = 3 * scaleFactor;
       const indicatorX = x + avatarSize * 0.6;
       const indicatorY = y - avatarSize * 0.6;
       
@@ -2239,41 +2189,24 @@ export class PixiChart {
       this.markerGraphics.drawCircle(indicatorX, indicatorY, indicatorSize);
       this.markerGraphics.lineStyle(0);
       
-      // 在指示器上绘制小图标
+      // 在指示器上绘制加号图标
       const iconSize = indicatorSize * 0.5;
       this.markerGraphics.beginFill(marker.color, 1);
       
-      if (marker.isExpanded) {
-        // 展开状态：绘制减号
-        this.markerGraphics.drawRect(
-          indicatorX - iconSize, 
-          indicatorY - iconSize * 0.2, 
-          iconSize * 2, 
-          iconSize * 0.4
-        );
-      } else {
-        // 收起状态：绘制加号
-        this.markerGraphics.drawRect(
-          indicatorX - iconSize, 
-          indicatorY - iconSize * 0.2, 
-          iconSize * 2, 
-          iconSize * 0.4
-        );
-        this.markerGraphics.drawRect(
-          indicatorX - iconSize * 0.2, 
-          indicatorY - iconSize, 
-          iconSize * 0.4, 
-          iconSize * 2
-        );
-      }
+      // 绘制加号
+      this.markerGraphics.drawRect(
+        indicatorX - iconSize, 
+        indicatorY - iconSize * 0.2, 
+        iconSize * 2, 
+        iconSize * 0.4
+      );
+      this.markerGraphics.drawRect(
+        indicatorX - iconSize * 0.2, 
+        indicatorY - iconSize, 
+        iconSize * 0.4, 
+        iconSize * 2
+      );
       this.markerGraphics.endFill();
-    }
-    
-    // 添加光晕效果（当点击时）
-    if (marker.isExpanded) {
-      this.markerGraphics.lineStyle(2, 0xFFD700, 0.6); // 金色光晕
-      this.markerGraphics.drawCircle(x, y, avatarSize + 2); // 从+3减小到+2
-      this.markerGraphics.lineStyle(0);
     }
   }
 
@@ -2401,7 +2334,7 @@ export class PixiChart {
       // 对于游客标记点，使用头像的实际位置进行点击检测
       if (marker.isRandom && marker.isExpandable) {
         const scaleFactor = Math.max(0.5, Math.min(2, 1 / this.viewState.scaleX));
-        const avatarOffsetY = 30 * scaleFactor; // 与绘制时的偏移保持一致
+        const avatarOffsetY = 20 * scaleFactor; // 与绘制时的偏移保持一致
         markerY = markerY - avatarOffsetY; // 使用头像的Y位置
       }
       
